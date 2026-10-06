@@ -1530,6 +1530,12 @@ static int fl_build_view_at_origin(const XwaFlightCamera* cam, const int32_t ori
 
 	memcpy(out->origin_world, origin_world, sizeof out->origin_world);
 	AeronWorld_LocalI32(origin_world, cam->world_pos, scene_camera->pos);
+	/* Preserve motion smaller than a legacy OPT unit (roughly 2.44 cm).
+	 * Classic culling sees the rounded camera; the HD scene gets continuous
+	 * head translation without added tracking-filter latency. */
+	for (int axis = 0; axis < 3; ++axis) {
+		scene_camera->pos[axis] += cam->head_subunit_offset[axis];
+	}
 	scene_camera->v_half_rad = atanf(hh / ps);
 	const float aspect = (float)target_w / (float)target_h;
 	scene_camera->h_half_rad = atanf(tanf(scene_camera->v_half_rad) * aspect);
@@ -1895,6 +1901,8 @@ static int fl_temporal_pose_changed(const XwaSnapshot* current, const XwaSnapsho
 	const XwaFlightCamera* cam = &current->flight_camera;
 	const XwaFlightCamera* prev_cam = &previous->flight_camera;
 	if (memcmp(cam->world_pos, prev_cam->world_pos, sizeof cam->world_pos) != 0 ||
+		memcmp(cam->head_subunit_offset, prev_cam->head_subunit_offset,
+			   sizeof cam->head_subunit_offset) != 0 ||
 		memcmp(cam->rows, prev_cam->rows, sizeof cam->rows) != 0 || cam->proj_scale != prev_cam->proj_scale ||
 		cam->vp_w != prev_cam->vp_w || cam->vp_h != prev_cam->vp_h ||
 		cam->vp_center_x != prev_cam->vp_center_x || cam->vp_center_y != prev_cam->vp_center_y ||
@@ -1910,7 +1918,9 @@ static int fl_temporal_pose_changed(const XwaSnapshot* current, const XwaSnapsho
 		   cockpit->aim_angle_b != prev_cockpit->aim_angle_b ||
 		   memcmp(cockpit->hardpoint_world, prev_cockpit->hardpoint_world, sizeof cockpit->hardpoint_world) !=
 			   0 ||
-		   memcmp(cockpit->camera_pan, prev_cockpit->camera_pan, sizeof cockpit->camera_pan) != 0;
+		   memcmp(cockpit->camera_pan, prev_cockpit->camera_pan, sizeof cockpit->camera_pan) != 0 ||
+		   memcmp(cockpit->trackir_head_offset, prev_cockpit->trackir_head_offset,
+				  sizeof cockpit->trackir_head_offset) != 0;
 }
 
 static int fl_cockpit_model_matrix(const XwaCockpit* cockpit, const XwaFlightObject* anchor,
