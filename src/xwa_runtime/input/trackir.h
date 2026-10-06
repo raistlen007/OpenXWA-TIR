@@ -15,6 +15,9 @@ typedef struct XwaTrackIRPose {
 
 /* Returns zero if unavailable, unfocused, paused, or data is stale. */
 int XwaTrackIR_Poll(XwaTrackIRPose* out);
+/* Last pose sampled for the current flight frame; zero when tracking is unavailable. */
+int XwaTrackIR_CurrentPose(XwaTrackIRPose* out);
+void XwaTrackIR_ClearPose(void);
 void XwaTrackIR_Shutdown(void);
 
 #endif
