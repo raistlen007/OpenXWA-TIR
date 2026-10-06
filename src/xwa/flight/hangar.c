@@ -45,6 +45,7 @@
 #include "xwa/math/scalar.h"
 #include "xwa/math/trig2.h"
 #ifdef XWA_MODERN
+#include "xwa_runtime/input/trackir.h"
 #include "xwa_runtime/snapshot/snapshot_hud.h"
 #include "xwa_runtime/timing/modern_flight_timing.h"
 #endif
@@ -2569,6 +2570,11 @@ void Hangar_RenderReadyScreen(void) {
 	Mission_SetActiveRegionObjectRanges(player->regionIndex);
 
 	if (g_hangarAutoCam) {
+#ifdef XWA_MODERN
+		/* The auto camera bypasses FlightView_UpdatePlayerCamera, so explicitly
+		 * discard the previous pilot/turret tracking pose. */
+		XwaTrackIR_ClearPose();
+#endif
 		Hangar_UpdateReadyAutoCamera(player);
 	} else {
 		FlightView_UpdatePlayerCamera(g_localPlayer);
