@@ -311,6 +311,59 @@ static void FVIEW_ApplyTrackIRRoll(int16_t rollQ16) {
 	FVIEW_StoreCamShadow(rows);
 }
 
+/* Apply look to an already positioned camera. External cameras establish
+ * their own orbit and collision clearance, while hyperspace forces a special
+ * orientation after the normal cockpit calculation. Head motion must be
+ * overlaid AFTER both camera modes establish their final base view. */
+static void FVIEW_ApplyTrackIRLookToCamera(const XwaTrackIRPose* head) {
+	float source[9];
+	double rows[9];
+	double up[3];
+	int i;
+	if (!head) return;
+	FVIEW_CopyRenderCameraRows(source);
+	for (i = 0; i < 9; ++i) rows[i] = (double)source[i];
+	up[0] = rows[3]; up[1] = rows[4]; up[2] = rows[5];
+	/* This is the exact pitch-then-yaw order used by
+	 * FVIEW_BuildCameraOrient's ordinary cockpit look offsets. */
+	FVIEW_ShadowRotateAxes(rows, rows[0], rows[1], rows[2], head->pitch_q16);
+	FVIEW_ShadowRotateAxes(rows, up[0], up[1], up[2], head->yaw_q16);
+	g_camMatR0_X = g_curMatR0_X = FVIEW_TrackIRToQ15(rows[0]);
+	g_camMatR0_Y = g_curMatR0_Y = FVIEW_TrackIRToQ15(rows[1]);
+	g_camMatR0_Z = g_curMatR0_Z = FVIEW_TrackIRToQ15(rows[2]);
+	g_camMatR1_X = g_curMatR1_X = FVIEW_TrackIRToQ15(rows[3]);
+	g_camMatR1_Y = g_curMatR1_Y = FVIEW_TrackIRToQ15(rows[4]);
+	g_camMatR1_Z = g_curMatR1_Z = FVIEW_TrackIRToQ15(rows[5]);
+	g_camMatR2_X = g_curMatR2_X = FVIEW_TrackIRToQ15(rows[6]);
+	g_camMatR2_Y = g_curMatR2_Y = FVIEW_TrackIRToQ15(rows[7]);
+	g_camMatR2_Z = g_curMatR2_Z = FVIEW_TrackIRToQ15(rows[8]);
+	FVIEW_StoreCamShadow(rows);
+	FVIEW_ApplyTrackIRRoll(head->roll_q16);
+}
+
+/* Transient visual translation. The original culler accepts only whole OPT
+ * coordinates, but the render snapshot retains the original float offset
+ * to reconstruct fractional movement. The basis is the view BEFORE
+ * head rotation, so leaning is independent of where the user looks. */
+static void FVIEW_ApplyTrackIRTranslation(int playerIdx, const XwaTrackIRPose* head,
+									   const float baseRows[9]) {
+	const float scale = AERON_OPT_UNITS_PER_METER * 0.01f;
+	const float local[3] = {-head->left_cm, head->up_cm, -head->back_cm};
+	float worldOffset[3];
+	int* const cameraCoord[3] = {
+		&g_players[playerIdx].viewState.savedTargetX,
+		&g_players[playerIdx].viewState.savedTargetY,
+		&g_players[playerIdx].viewState.savedTargetZ
+	};
+	for (int axis = 0; axis < 3; ++axis) {
+		const float relative = local[0] * baseRows[axis] +
+			local[1] * baseRows[3 + axis] + local[2] * baseRows[6 + axis];
+		worldOffset[axis] = relative * scale;
+		*cameraCoord[axis] += (int)lroundf(worldOffset[axis]);
+	}
+	XwaTrackIR_SetCameraOffset(worldOffset);
+}
+
 #endif
 
 // FUNCTION: XWA 0x497610
@@ -910,7 +963,7 @@ void FlightView_UpdatePlayerCamera(int playerIdx) {
 	unsigned int cameraFocusObjIdx;
 
 #ifdef XWA_MODERN
-	/* Tracking is strictly the current local pilot's transient render input. */
+	/* Per-frame local head pose only. Other players, replay and maps remain unchanged. */
 	if (playerIdx == g_localPlayer) XwaTrackIR_ClearPose();
 #endif
 	if (g_players[playerIdx].mapCameraState) {
@@ -1135,6 +1188,7 @@ void FlightView_UpdatePlayerCamera(int playerIdx) {
 			 * The camera builder applies head look AFTER turret aim/mount rotations,
 			 * keeping gun aiming independent. Skip external/cinematic views. */
 			if (playerIdx == g_localPlayer && !g_filmRecording && !g_filmPlaybackMode &&
+				g_players[playerIdx].hyperspacePhase == PLAYER_HYPERSPACE_PHASE_NONE &&
 				g_players[playerIdx].cockpitVisible &&
 				((g_players[playerIdx].currentSeatIdx == 0 && g_players[playerIdx].cockpitLookAvailable) ||
 				 (g_players[playerIdx].currentSeatIdx > 0 && g_players[playerIdx].cockpitToggleAvailable)) &&
@@ -1205,29 +1259,7 @@ void FlightView_UpdatePlayerCamera(int playerIdx) {
 				g_players[playerIdx].viewState.cameraPanDeltaZ >> 4;
 #ifdef XWA_MODERN
 			if (tracking) {
-				/* Native OPT/XWA coordinates use 65536 units per 1600 m. SDK
-				 * translations are left/up/back in centimetres. The offset is
-				 * exclusively visual; the craft's simulation pose is untouched. */
-				const float scale = AERON_OPT_UNITS_PER_METER * 0.01f;
-				const float local[3] = {-trackir.left_cm, trackir.up_cm, -trackir.back_cm};
-				float headWorldOffset[3] = {0};
-				int* const coord[3] = {
-					&g_players[playerIdx].viewState.savedTargetX,
-					&g_players[playerIdx].viewState.savedTargetY,
-					&g_players[playerIdx].viewState.savedTargetZ
-				};
-				for (int axis = 0; axis < 3; ++axis) {
-					float offset = local[0] * seatRows[axis] +
-						local[1] * seatRows[3 + axis] + local[2] * seatRows[6 + axis];
-					/* Classic culling uses integer eye coordinates; the HD renderer
-					 * receives the unrounded motion and restores the subunit fraction. */
-					const float continuousOffset = offset * scale;
-					*coord[axis] += (int)lroundf(continuousOffset);
-					headWorldOffset[axis] = continuousOffset;
-				}
-				/* Keep the cockpit model attached to the ship, not to the new
-				 * eye position. The HD renderer subtracts exactly this offset. */
-				XwaTrackIR_SetCameraOffset(headWorldOffset);
+				FVIEW_ApplyTrackIRTranslation(playerIdx, &trackir, seatRows);
 			}
 #endif
 		}
@@ -1258,6 +1290,26 @@ void FlightView_UpdatePlayerCamera(int playerIdx) {
 			g_players[playerIdx].viewState.savedTargetY += 16 * phaseTicks;
 		}
 	}
+#ifdef XWA_MODERN
+	/* Both paths bypass or replace the usual cockpit camera:
+	 *  - External view computes orbit, distance and collision clearance first.
+	 *  - Hyperspace rebuilds the camera from its transition pose.
+	 * Apply 6DOF only after these modes have settled their base camera.
+	 * Never write the headset pose into the ship's control/aim state. */
+	if (playerIdx == g_localPlayer && !g_players[playerIdx].mapCameraState &&
+		!g_filmRecording && !g_filmPlaybackMode &&
+		!g_players[playerIdx].viewState.playerInputBlocked &&
+		(g_players[playerIdx].viewState.externalCameraActive ||
+		 g_players[playerIdx].hyperspacePhase != PLAYER_HYPERSPACE_PHASE_NONE)) {
+		XwaTrackIRPose head;
+		if (XwaTrackIR_Poll(&head)) {
+			float baseRows[9];
+			FVIEW_CopyRenderCameraRows(baseRows);
+			FVIEW_ApplyTrackIRLookToCamera(&head);
+			FVIEW_ApplyTrackIRTranslation(playerIdx, &head, baseRows);
+		}
+	}
+#endif
 }
 
 // FUNCTION: XWA 0x4F1B00
