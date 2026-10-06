@@ -1,6 +1,7 @@
 name: CI
 
 on:
+  workflow_dispatch:
   push:
     branches: [main]
   pull_request:
@@ -11,6 +12,7 @@ concurrency:
 
 jobs:
   linux:
+    if: github.event_name != 'workflow_dispatch'
     name: Linux ${{ matrix.build-type }}
     runs-on: ubuntu-latest
     strategy:
@@ -97,6 +99,7 @@ jobs:
           if-no-files-found: error
 
   macos:
+    if: github.event_name != 'workflow_dispatch'
     name: macOS ${{ matrix.build-type }}
     runs-on: macos-15
     strategy:
