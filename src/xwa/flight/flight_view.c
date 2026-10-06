@@ -1131,12 +1131,13 @@ void FlightView_UpdatePlayerCamera(int playerIdx) {
 			XwaTrackIRPose trackir = {0};
 			float seatRows[9] = {0};
 			int tracking = 0;
-			/* Only the local pilot's normal in-cockpit view (flight or hangar).
-			 * Never follow automatic hangar camera shots or outside views. */
+			/* Track the local user's normal cockpit view (pilot OR gun turret).
+			 * The camera builder applies head look AFTER turret aim/mount rotations,
+			 * keeping gun aiming independent. Skip external/cinematic views. */
 			if (playerIdx == g_localPlayer && !g_filmRecording && !g_filmPlaybackMode &&
 				g_players[playerIdx].cockpitVisible &&
-				g_players[playerIdx].currentSeatIdx == 0 &&
-				g_players[playerIdx].cockpitLookAvailable &&
+				((g_players[playerIdx].currentSeatIdx == 0 && g_players[playerIdx].cockpitLookAvailable) ||
+				 (g_players[playerIdx].currentSeatIdx > 0 && g_players[playerIdx].cockpitToggleAvailable)) &&
 				cameraFocusObjIdx == (unsigned int)g_players[playerIdx].objectIndex) {
 				tracking = XwaTrackIR_Poll(&trackir);
 			}
@@ -1218,9 +1219,11 @@ void FlightView_UpdatePlayerCamera(int playerIdx) {
 				for (int axis = 0; axis < 3; ++axis) {
 					float offset = local[0] * seatRows[axis] +
 						local[1] * seatRows[3 + axis] + local[2] * seatRows[6 + axis];
-					const int shift = (int)lroundf(offset * scale);
-					*coord[axis] += shift;
-					headWorldOffset[axis] = (float)shift;
+					/* Classic culling uses integer eye coordinates; the HD renderer
+					 * receives the unrounded motion and restores the subunit fraction. */
+					const float continuousOffset = offset * scale;
+					*coord[axis] += (int)lroundf(continuousOffset);
+					headWorldOffset[axis] = continuousOffset;
 				}
 				/* Keep the cockpit model attached to the ship, not to the new
 				 * eye position. The HD renderer subtracts exactly this offset. */
