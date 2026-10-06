@@ -205,6 +205,7 @@ set(XWA_RUNTIME_SOURCES
     src/xwa_runtime/input/rumble_provider.c
     src/xwa_runtime/input/winmm_joystick_provider.c
     src/xwa_runtime/input/mouse_flight.c
+    src/xwa_runtime/input/trackir.c
     src/xwa_runtime/runtime/flight_pause_task.c
     src/xwa_runtime/runtime/flight_task.c
     src/xwa_runtime/runtime/frontend_task.c
@@ -220,6 +221,11 @@ set(XWA_RUNTIME_SOURCES
 )
 
 add_library(xwa_core ${XWA_RECOVERED_SOURCES} ${XWA_RUNTIME_SOURCES})
+if(WIN32)
+    # NPClient is loaded at runtime from the existing TrackIR installation.
+    # Only the Windows registry API is linked; no TrackIR SDK is bundled.
+    target_link_libraries(xwa_core PRIVATE advapi32)
+endif()
 
 # The recovered sources reproduce MSVC 5.0-era code, which reinterprets one
 # struct pointer type as another (iMUSE passes ImStreamZone*/ImTrack* lists
@@ -579,6 +585,7 @@ set(XWA_FORMAT_HEADERS
     src/xwa_runtime/input/winmm_joystick_provider.h
     src/xwa_runtime/input/controller_mapping.h
     src/xwa_runtime/input/mouse_flight.h
+    src/xwa_runtime/input/trackir.h
     src/xwa_runtime/timing/modern_flight_timing.h
     src/xwa_runtime/runtime/movie_task.h
     src/xwa_runtime/hooks/orientation_hook.h
