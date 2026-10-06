@@ -3225,7 +3225,11 @@ static void fl_submit_hyperspace_cockpit(AeronCommandBuffer* cmd, XwaRemasterAss
 	}
 	float pw[3];
 	for (int j = 0; j < 3; j++) {
-		pw[j] = s.camera_local[j] + s.crows[0 * 3 + j] * delta[0] + s.crows[1 * 3 + j] * delta[1] +
+		/* Head motion changes the observer, not the hyperspace cockpit.
+		 * As in normal flight, keep the cockpit anchored at the untracked
+		 * eye origin while the rendered camera translates around it. */
+		pw[j] = s.camera_local[j] - snap->cockpit.trackir_head_offset[j] +
+				s.crows[0 * 3 + j] * delta[0] + s.crows[1 * 3 + j] * delta[1] +
 				s.crows[2 * 3 + j] * delta[2];
 	}
 	float m[16];
