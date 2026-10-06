@@ -5,6 +5,20 @@
 #include <math.h>
 #include <string.h>
 
+/* Stored separately from recovered simulation/player state. */
+static XwaTrackIRPose s_pose;
+static int s_pose_valid;
+
+void XwaTrackIR_ClearPose(void) {
+    memset(&s_pose, 0, sizeof s_pose);
+    s_pose_valid = 0;
+}
+
+int XwaTrackIR_CurrentPose(XwaTrackIRPose* out) {
+    if (out) *out = s_pose;
+    return s_pose_valid;
+}
+
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
@@ -52,6 +66,7 @@ void XwaTrackIR_Shutdown(void) {
         if (s_unregister) s_unregister();
         FreeLibrary(s_module);
     }
+    XwaTrackIR_ClearPose();
     s_module = NULL;
     s_window = NULL;
     s_unregister = NULL;
@@ -121,6 +136,7 @@ int XwaTrackIR_Poll(XwaTrackIRPose* out) {
     DWORD now = GetTickCount();
     if (!out) return 0;
     memset(out, 0, sizeof *out);
+    XwaTrackIR_ClearPose();
 
     if (!s_module) {
         if ((int32_t)(now - s_next_attempt) < 0) return 0;
@@ -142,10 +158,12 @@ int XwaTrackIR_Poll(XwaTrackIRPose* out) {
 
     out->yaw_q16 = angle_q16(frame.yaw, 1);
     out->pitch_q16 = angle_q16(frame.pitch, 1);
-    out->roll_q16 = angle_q16(frame.roll, 1);
+    out->roll_q16 = angle_q16(frame.roll, 0);
     out->left_cm = frame.x * (50.0f / 16383.0f);
     out->up_cm = frame.y * (50.0f / 16383.0f);
     out->back_cm = frame.z * (50.0f / 16383.0f);
+    s_pose = *out;
+    s_pose_valid = 1;
     return 1;
 }
 
@@ -153,6 +171,7 @@ int XwaTrackIR_Poll(XwaTrackIRPose* out) {
 
 int XwaTrackIR_Poll(XwaTrackIRPose* out) {
     if (out) memset(out, 0, sizeof *out);
+    XwaTrackIR_ClearPose();
     return 0;
 }
 void XwaTrackIR_Shutdown(void) {}
