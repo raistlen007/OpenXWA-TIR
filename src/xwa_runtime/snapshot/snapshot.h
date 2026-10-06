@@ -447,7 +447,10 @@ typedef struct XwaFlightMapState {
 /* Flight camera, captured with the objects. `rows` are the active modern
  * render camera's world->eye basis rows in R0, R1, R2 storage order. */
 typedef struct XwaFlightCamera {
-	int32_t world_pos[3]; /* viewState.savedTarget* (camera anchor) */
+	int32_t world_pos[3]; /* integer camera anchor, used by classic culling */
+	/* Residual subunit observer displacement after legacy integer rounding.
+	 * The remaster adds this to the local camera position for smooth 6DOF. */
+	float head_subunit_offset[3];
 	float rows[9];
 	uint16_t view_pitch, view_yaw, view_roll, view_angle_d;
 	int32_t focus_obj_idx;
