@@ -1968,7 +1968,10 @@ static int fl_cockpit_model_matrix(const XwaCockpit* cockpit, const XwaFlightObj
 
 	float position[3];
 	for (int axis = 0; axis < 3; ++axis) {
-		position[axis] = camera_local[axis] + camera_rows[0 * 3 + axis] * delta[0] +
+		/* Camera motion is observer-only. The cockpit is anchored to the ship,
+		 * so remove the head displacement before constructing its world pose. */
+		position[axis] = camera_local[axis] - cockpit->trackir_head_offset[axis] +
+						 camera_rows[0 * 3 + axis] * delta[0] +
 						 camera_rows[1 * 3 + axis] * delta[1] + camera_rows[2 * 3 + axis] * delta[2];
 	}
 	fl_model_matrix(basis, position, out);
