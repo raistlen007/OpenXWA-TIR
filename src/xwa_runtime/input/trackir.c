@@ -48,8 +48,8 @@ static HWND s_window;
 static TrackIRUnregisterWindow s_unregister;
 static TrackIRTransmission s_stop;
 static TrackIRGetData s_get;
-static DWORD s_next_attempt;
-static DWORD s_last_data_time;
+static ULONGLONG s_next_attempt;
+static ULONGLONG s_last_data_time;
 static uint16_t s_signature;
 static int s_has_signature;
 
@@ -133,13 +133,13 @@ static int TrackIR_Connect(void) {
 
 int XwaTrackIR_Poll(XwaTrackIRPose* out) {
     TrackIRRawFrame frame;
-    DWORD now = GetTickCount();
+    ULONGLONG now = GetTickCount64();
     if (!out) return 0;
     memset(out, 0, sizeof *out);
     XwaTrackIR_ClearPose();
 
     if (!s_module) {
-        if ((int32_t)(now - s_next_attempt) < 0) return 0;
+        if (now < s_next_attempt) return 0;
         s_next_attempt = now + 3000;
         if (!TrackIR_Connect()) return 0;
     }
@@ -152,7 +152,7 @@ int XwaTrackIR_Poll(XwaTrackIRPose* out) {
         s_signature = frame.signature;
         s_has_signature = 1;
         s_last_data_time = now;
-    } else if ((DWORD)(now - s_last_data_time) > 500) {
+    } else if (now - s_last_data_time > 500) {
         return 0;
     }
 
