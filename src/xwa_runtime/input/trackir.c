@@ -141,7 +141,12 @@ int XwaTrackIR_Poll(XwaTrackIRPose* out) {
     if (!s_module) {
         if (now < s_next_attempt) return 0;
         s_next_attempt = now + 3000;
-        if (!TrackIR_Connect()) return 0;
+        if (!TrackIR_Connect()) {
+            /* Failed registration may call Shutdown(), which clears the
+             * retry deadline; never try loading the DLL every render frame. */
+            s_next_attempt = now + 3000;
+            return 0;
+        }
     }
     if (s_window != GetForegroundWindow()) return 0;
     memset(&frame, 0, sizeof frame);
