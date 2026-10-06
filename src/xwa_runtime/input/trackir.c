@@ -1,6 +1,7 @@
 /* TrackIR runtime bridge. Uses the NPClient64.dll installed by TrackIR.
  * No SDK headers, code, or DLLs are distributed with OpenXWA. */
 #include "xwa_runtime/input/trackir.h"
+#include "xwa_runtime/config/modern_input_options.h"
 
 #include <math.h>
 #include <string.h>
@@ -147,10 +148,18 @@ static int TrackIR_Connect(void) {
 
 int XwaTrackIR_Poll(XwaTrackIRPose* out) {
     TrackIRRawFrame frame;
+    XwaModernInputOptions options;
     ULONGLONG now = GetTickCount64();
     if (!out) return 0;
     memset(out, 0, sizeof *out);
     XwaTrackIR_ClearPose();
+    XwaModernInputOptions_Get(&options);
+    if (!options.head_tracking.enabled ||
+        options.head_tracking.source != XWA_HEAD_TRACK_SOURCE_TRACKIR) {
+        /* Disabled means no DLL connection, polling, or residual pose. */
+        if (s_module) XwaTrackIR_Shutdown();
+        return 0;
+    }
 
     if (!s_module) {
         if (now < s_next_attempt) return 0;
@@ -175,14 +184,18 @@ int XwaTrackIR_Poll(XwaTrackIRPose* out) {
         return 0;
     }
 
-    out->yaw_q16 = angle_q16(frame.yaw, 1);
-    out->pitch_q16 = angle_q16(frame.pitch, 1);
-    out->roll_q16 = angle_q16(frame.roll, 1);
-    out->left_cm = frame.x * (50.0f / 16383.0f);
-    /* NaturalPoint's vertical value is inverted relative to OpenXWA's
-     * seat-up axis: rising from the seat must raise the camera. */
-    out->up_cm = -frame.y * (50.0f / 16383.0f);
-    out->back_cm = frame.z * (50.0f / 16383.0f);
+    /* The default (all inversion switches Off) preserves the axis
+     * conventions tested in the first TrackIR implementation. */
+    out->yaw_q16 = angle_q16(frame.yaw, !options.head_tracking.invert[XWA_HEAD_TRACK_AXIS_YAW]);
+    out->pitch_q16 = angle_q16(frame.pitch, !options.head_tracking.invert[XWA_HEAD_TRACK_AXIS_PITCH]);
+    out->roll_q16 = angle_q16(frame.roll, !options.head_tracking.invert[XWA_HEAD_TRACK_AXIS_ROLL]);
+    out->left_cm = frame.x * (50.0f / 16383.0f) *
+        (options.head_tracking.invert[XWA_HEAD_TRACK_AXIS_X] ? -1.0f : 1.0f);
+    /* NaturalPoint's vertical value is reversed from the seat-up direction. */
+    out->up_cm = -frame.y * (50.0f / 16383.0f) *
+        (options.head_tracking.invert[XWA_HEAD_TRACK_AXIS_Y] ? -1.0f : 1.0f);
+    out->back_cm = frame.z * (50.0f / 16383.0f) *
+        (options.head_tracking.invert[XWA_HEAD_TRACK_AXIS_Z] ? -1.0f : 1.0f);
     s_pose = *out;
     s_pose_valid = 1;
     return 1;
