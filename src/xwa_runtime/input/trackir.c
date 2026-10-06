@@ -179,7 +179,9 @@ int XwaTrackIR_Poll(XwaTrackIRPose* out) {
     out->pitch_q16 = angle_q16(frame.pitch, 1);
     out->roll_q16 = angle_q16(frame.roll, 1);
     out->left_cm = frame.x * (50.0f / 16383.0f);
-    out->up_cm = frame.y * (50.0f / 16383.0f);
+    /* NaturalPoint's vertical value is inverted relative to OpenXWA's
+     * seat-up axis: rising from the seat must raise the camera. */
+    out->up_cm = -frame.y * (50.0f / 16383.0f);
     out->back_cm = frame.z * (50.0f / 16383.0f);
     s_pose = *out;
     s_pose_valid = 1;
