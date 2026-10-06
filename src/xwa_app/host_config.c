@@ -788,7 +788,7 @@ static int host_config_head_tracking(const AeronConfigFile* config, int required
 	} else {
 		name = AeronConfigNode_String(source, NULL);
 		if (!name || strcmp(name, "trackir") != 0) {
-			return host_config_error(error, error_size, "invalid head tracking source: expected 'trackir'");
+			return host_config_error(error, error_size, "invalid head tracking source: expected '%s'", "trackir");
 		}
 		head->source = XWA_HEAD_TRACK_SOURCE_TRACKIR;
 	}
