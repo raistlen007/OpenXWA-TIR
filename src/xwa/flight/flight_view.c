@@ -1298,9 +1298,9 @@ void FlightView_UpdatePlayerCamera(int playerIdx) {
 	 * Never write the headset pose into the ship's control/aim state. */
 	if (playerIdx == g_localPlayer && !g_players[playerIdx].mapCameraState &&
 		!g_filmRecording && !g_filmPlaybackMode &&
-		!g_players[playerIdx].viewState.playerInputBlocked &&
-		(g_players[playerIdx].viewState.externalCameraActive ||
-		 g_players[playerIdx].hyperspacePhase != PLAYER_HYPERSPACE_PHASE_NONE)) {
+		(g_players[playerIdx].hyperspacePhase != PLAYER_HYPERSPACE_PHASE_NONE ||
+		 (g_players[playerIdx].viewState.externalCameraActive &&
+		  !g_players[playerIdx].viewState.playerInputBlocked))) {
 		XwaTrackIRPose head;
 		if (XwaTrackIR_Poll(&head)) {
 			float baseRows[9];
