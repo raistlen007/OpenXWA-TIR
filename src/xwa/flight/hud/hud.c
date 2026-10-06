@@ -36,6 +36,7 @@
 #include "xwa/math/trig2.h"
 #ifdef XWA_MODERN
 #include "xwa_runtime/snapshot/snapshot_hud.h"
+#include "xwa_runtime/input/trackir.h"
 #endif
 #include "xwa/render/effects.h"
 #include "xwa/render/renderer_internal.h"
@@ -6869,6 +6870,18 @@ void Hud_DrawReticle3D(void) {
 	uint8_t inRange;
 	uint16_t lockRange;
 	unsigned int lockRangeDivisor;
+#ifdef XWA_MODERN
+	int16_t effectiveLookYaw = g_players[g_localPlayer].lookYawOffset;
+	int16_t effectiveLookPitch = g_players[g_localPlayer].lookPitchOffset;
+	XwaTrackIRPose head;
+	if (XwaTrackIR_CurrentPose(&head)) {
+		effectiveLookYaw = (int16_t)(effectiveLookYaw + head.yaw_q16);
+		effectiveLookPitch = (int16_t)(effectiveLookPitch + head.pitch_q16);
+	}
+#else
+	const int16_t effectiveLookYaw = g_players[g_localPlayer].lookYawOffset;
+	const int16_t effectiveLookPitch = g_players[g_localPlayer].lookPitchOffset;
+#endif
 
 	g_reticleDrawX = g_reticleCenterX;
 	g_reticleDrawY = g_reticleCenterY;
@@ -6907,12 +6920,12 @@ void Hud_DrawReticle3D(void) {
 	lockRange = modelIndex == missileBoatModelIndex ? 354 : 708;
 	lockRangeDivisor = lockRange / 200;
 
-	if (Hud_AbsLookDegreesFromOffset(g_players[g_localPlayer].lookYawOffset) >= 45 ||
-		Hud_AbsLookDegreesFromOffset(g_players[g_localPlayer].lookPitchOffset) >= 45) {
+	if (Hud_AbsLookDegreesFromOffset(effectiveLookYaw) >= 45 ||
+		Hud_AbsLookDegreesFromOffset(effectiveLookPitch) >= 45) {
 		return;
 	}
 
-	if (g_players[g_localPlayer].lookYawOffset || g_players[g_localPlayer].lookPitchOffset) {
+	if (effectiveLookYaw || effectiveLookPitch) {
 		int worldZ;
 
 		pai_RotateLocalVectorToWorldScratch(&g_objectTable[g_players[g_localPlayer].objectIndex], 0, 0,
@@ -6973,7 +6986,7 @@ void Hud_DrawReticle3D(void) {
 					}
 				}
 
-				if (g_players[g_localPlayer].lookYawOffset || g_players[g_localPlayer].lookPitchOffset) {
+				if (effectiveLookYaw || effectiveLookPitch) {
 					int aimX;
 					int drawX;
 
@@ -7055,7 +7068,7 @@ void Hud_DrawReticle3D(void) {
 
 	quad.screenX = g_reticleCenterX;
 	quad.screenY = g_screenHeight - g_reticleCenterY;
-	if (g_players[g_localPlayer].lookYawOffset || g_players[g_localPlayer].lookPitchOffset) {
+	if (effectiveLookYaw || effectiveLookPitch) {
 		quad.screenX = g_reticleDrawX;
 		quad.screenY = g_screenHeight - g_reticleDrawY;
 	}
