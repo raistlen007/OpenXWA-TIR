@@ -6,6 +6,18 @@ input:
   mouse_mode: 'position'
   mouse_sensitivity: 5
   mouse_invert_y: true
+  # TrackIR is currently the only supported native tracking provider.
+  # Inversion is relative to OpenXWA's standard head-motion directions.
+  head_tracking:
+    enabled: true
+    source: 'trackir'
+    invert:
+      yaw: false
+      pitch: false
+      roll: false
+      x: false
+      y: false
+      z: false
   controller:
     device:
       # Empty GUID selects the first connected controller.
