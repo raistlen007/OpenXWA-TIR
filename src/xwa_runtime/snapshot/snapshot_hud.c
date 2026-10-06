@@ -463,6 +463,11 @@ static void hud_capture_direct_state(XwaHudState* out) {
 		out->reticle.look_pitch = (int16_t)(out->reticle.look_pitch + head.pitch_q16);
 	}
 	out->reticle.seat = (uint8_t)player->currentSeatIdx;
+	out->reticle.turret_aim_valid = 0;
+	if (player->currentSeatIdx > 0) {
+		out->reticle.turret_aim_valid = (uint8_t)XwaTrackIR_GetTurretAimDirection(
+			out->reticle.turret_aim_world);
+	}
 	out->reticle.stick_marker = 0;
 	if (!g_padlockMouseLookEnabled) {
 		int stick_marker_x;
