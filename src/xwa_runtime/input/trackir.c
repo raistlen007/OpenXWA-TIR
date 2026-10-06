@@ -8,10 +8,24 @@
 /* Stored separately from recovered simulation/player state. */
 static XwaTrackIRPose s_pose;
 static int s_pose_valid;
+static float s_camera_offset[3];
 
 void XwaTrackIR_ClearPose(void) {
     memset(&s_pose, 0, sizeof s_pose);
+    memset(s_camera_offset, 0, sizeof s_camera_offset);
     s_pose_valid = 0;
+}
+
+void XwaTrackIR_SetCameraOffset(const float world_offset[3]) {
+    if (world_offset && s_pose_valid) {
+        memcpy(s_camera_offset, world_offset, sizeof s_camera_offset);
+    }
+}
+
+void XwaTrackIR_GetCameraOffset(float world_offset[3]) {
+    if (world_offset) {
+        memcpy(world_offset, s_camera_offset, sizeof s_camera_offset);
+    }
 }
 
 int XwaTrackIR_CurrentPose(XwaTrackIRPose* out) {
@@ -163,7 +177,7 @@ int XwaTrackIR_Poll(XwaTrackIRPose* out) {
 
     out->yaw_q16 = angle_q16(frame.yaw, 1);
     out->pitch_q16 = angle_q16(frame.pitch, 1);
-    out->roll_q16 = angle_q16(frame.roll, 0);
+    out->roll_q16 = angle_q16(frame.roll, 1);
     out->left_cm = frame.x * (50.0f / 16383.0f);
     out->up_cm = frame.y * (50.0f / 16383.0f);
     out->back_cm = frame.z * (50.0f / 16383.0f);
