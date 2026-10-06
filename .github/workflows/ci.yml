@@ -8,11 +8,11 @@ on:
 
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  cancel-in-progress: true
 
 jobs:
   linux:
-    if: github.event_name != 'workflow_dispatch'
+    if: github.event_name == 'pull_request'
     name: Linux ${{ matrix.build-type }}
     runs-on: ubuntu-latest
     strategy:
@@ -99,7 +99,7 @@ jobs:
           if-no-files-found: error
 
   macos:
-    if: github.event_name != 'workflow_dispatch'
+    if: github.event_name == 'pull_request'
     name: macOS ${{ matrix.build-type }}
     runs-on: macos-15
     strategy:
