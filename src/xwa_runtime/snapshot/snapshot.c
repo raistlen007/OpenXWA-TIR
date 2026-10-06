@@ -35,6 +35,7 @@
 #include "xwa/render/renderer.h"
 #include "xwa/util/time.h"
 
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -1384,6 +1385,14 @@ void XwaSnapshot_CaptureFlight(void) {
 	c->world_pos[0] = vs->savedTargetX;
 	c->world_pos[1] = vs->savedTargetY;
 	c->world_pos[2] = vs->savedTargetZ;
+	/* Classic camera coordinates are quantized in whole OPT units (about
+	 * 2.44 cm per unit). Recover the remainder of the real head movement
+	 * for the floating-point renderer without touching mission state. */
+	float trackir_world_offset[3] = {0};
+	XwaTrackIR_GetCameraOffset(trackir_world_offset);
+	for (int axis = 0; axis < 3; ++axis) {
+		c->head_subunit_offset[axis] = trackir_world_offset[axis] - roundf(trackir_world_offset[axis]);
+	}
 	FVIEW_CopyRenderCameraRows(c->rows);
 	c->view_pitch = vs->viewPitch;
 	c->view_yaw = vs->viewYaw;
