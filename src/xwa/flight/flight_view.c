@@ -15,6 +15,8 @@
 #include "xwa/util/time.h"
 #ifdef XWA_MODERN
 #include "aeron/log.h"
+#include "aeron/asset/opt_model.h"
+#include "xwa_runtime/input/trackir.h"
 #include "xwa/flight/flight_debug.h"
 #include "xwa_runtime/hooks/orientation_hook.h"
 #include "xwa_runtime/snapshot/snapshot_hud.h"
@@ -273,6 +275,42 @@ static void FVIEW_StoreCamShadow(const double m[9]) {
 	g_camShadowValid = 1;
 	FVIEW_CopyShadowToViewMtx();
 }
+/* TrackIR rolls the observer about the VIEW direction, not the ship.
+ * Keep the original Q15 camera and its smooth double-precision shadow in
+ * agreement: the classic culler and remastered scene must see the same view. */
+static int FVIEW_TrackIRToQ15(double value) {
+	long scaled = lround(value * 32768.0);
+	if (scaled < -32767) return -32767;
+	if (scaled > 32767) return 32767;
+	return (int)scaled;
+}
+
+static void FVIEW_ApplyTrackIRRoll(int16_t rollQ16) {
+	float original[9];
+	double rows[9];
+	double angle;
+	double co;
+	double si;
+	int i;
+	if (!rollQ16) return;
+	FVIEW_CopyRenderCameraRows(original);
+	for (i = 0; i < 9; ++i) rows[i] = (double)original[i];
+	angle = ((double)rollQ16 * 3.14159265358979323846) / 32768.0;
+	co = cos(angle);
+	si = sin(angle);
+	for (i = 0; i < 3; ++i) {
+		rows[i] = co * (double)original[i] + si * (double)original[i + 3];
+		rows[i + 3] = -si * (double)original[i] + co * (double)original[i + 3];
+	}
+	g_camMatR0_X = g_curMatR0_X = FVIEW_TrackIRToQ15(rows[0]);
+	g_camMatR0_Y = g_curMatR0_Y = FVIEW_TrackIRToQ15(rows[1]);
+	g_camMatR0_Z = g_curMatR0_Z = FVIEW_TrackIRToQ15(rows[2]);
+	g_camMatR1_X = g_curMatR1_X = FVIEW_TrackIRToQ15(rows[3]);
+	g_camMatR1_Y = g_curMatR1_Y = FVIEW_TrackIRToQ15(rows[4]);
+	g_camMatR1_Z = g_curMatR1_Z = FVIEW_TrackIRToQ15(rows[5]);
+	FVIEW_StoreCamShadow(rows);
+}
+
 #endif
 
 // FUNCTION: XWA 0x497610
@@ -871,6 +909,10 @@ void FlightView_UpdatePlaybackCamera(int playerIdx) {
 void FlightView_UpdatePlayerCamera(int playerIdx) {
 	unsigned int cameraFocusObjIdx;
 
+#ifdef XWA_MODERN
+	/* Tracking is strictly the current local pilot's transient render input. */
+	if (playerIdx == g_localPlayer) XwaTrackIR_ClearPose();
+#endif
 	if (g_players[playerIdx].mapCameraState) {
 		FlightMap_UpdateCamera(playerIdx);
 	} else {
@@ -1085,6 +1127,19 @@ void FlightView_UpdatePlayerCamera(int playerIdx) {
 				}
 			}
 		} else {
+#ifdef XWA_MODERN
+			XwaTrackIRPose trackir = {0};
+			float seatRows[9] = {0};
+			int tracking = 0;
+			/* Only the living pilot's normal in-cockpit mission view. */
+			if (playerIdx == g_localPlayer && !g_filmRecording && !g_filmPlaybackMode &&
+				!g_inHangarReady && g_players[playerIdx].cockpitVisible &&
+				g_players[playerIdx].currentSeatIdx == 0 &&
+				g_players[playerIdx].cockpitLookAvailable &&
+				cameraFocusObjIdx == (unsigned int)g_players[playerIdx].objectIndex) {
+				tracking = XwaTrackIR_Poll(&trackir);
+			}
+#endif
 			g_players[playerIdx].viewState.viewRoll = g_objectTable[cameraFocusObjIdx].roll;
 			g_players[playerIdx].viewState.viewPitch =
 				g_objectTable[g_players[playerIdx].viewState.cameraFocusObjIdx].pitch;
@@ -1092,6 +1147,19 @@ void FlightView_UpdatePlayerCamera(int playerIdx) {
 				g_objectTable[g_players[playerIdx].viewState.cameraFocusObjIdx].yaw;
 			g_players[playerIdx].viewState.hudAimY = (uint16_t)g_players[playerIdx].lookYawOffset;
 			g_players[playerIdx].viewState.hudAimX = (uint16_t)g_players[playerIdx].lookPitchOffset;
+#ifdef XWA_MODERN
+			if (tracking) {
+				/* Use the zero-look seat frame to translate the head; leaning must
+				 * not change direction when the pilot turns their head. */
+				FVIEW_BuildCameraOrient(
+					g_players[playerIdx].viewState.viewRoll,
+					(int16_t)g_players[playerIdx].viewState.viewPitch,
+					(int16_t)g_players[playerIdx].viewState.viewYaw,
+					g_players[playerIdx].viewState.viewAngleD, 0, 0,
+					&g_objectTable[cameraFocusObjIdx], playerIdx);
+				FVIEW_CopyRenderCameraRows(seatRows);
+			}
+#endif
 			g_players[playerIdx].viewState.viewYaw =
 				(uint16_t)(g_players[playerIdx].viewState.viewYaw +
 						   g_players[playerIdx].viewState.cameraYawDelta);
@@ -1104,9 +1172,17 @@ void FlightView_UpdatePlayerCamera(int playerIdx) {
 			FVIEW_BuildCameraOrient(
 				g_players[playerIdx].viewState.viewRoll, (int16_t)g_players[playerIdx].viewState.viewPitch,
 				(int16_t)g_players[playerIdx].viewState.viewYaw, g_players[playerIdx].viewState.viewAngleD,
+#ifdef XWA_MODERN
+				(int16_t)(g_players[playerIdx].viewState.hudAimX + (tracking ? trackir.pitch_q16 : 0)),
+				(int16_t)(g_players[playerIdx].viewState.hudAimY + (tracking ? trackir.yaw_q16 : 0)),
+#else
 				(int16_t)g_players[playerIdx].viewState.hudAimX,
 				(int16_t)g_players[playerIdx].viewState.hudAimY,
+#endif
 				&g_objectTable[g_players[playerIdx].viewState.cameraFocusObjIdx], playerIdx);
+#ifdef XWA_MODERN
+			if (tracking) FVIEW_ApplyTrackIRRoll(trackir.roll_q16);
+#endif
 			g_players[playerIdx].viewState.savedTargetX =
 				g_objectTable[g_players[playerIdx].viewState.cameraFocusObjIdx].world_x;
 			g_players[playerIdx].viewState.savedTargetY =
@@ -1125,6 +1201,24 @@ void FlightView_UpdatePlayerCamera(int playerIdx) {
 				g_players[playerIdx].viewState.cameraPanDeltaY >> 4;
 			g_players[playerIdx].viewState.savedTargetZ +=
 				g_players[playerIdx].viewState.cameraPanDeltaZ >> 4;
+#ifdef XWA_MODERN
+			if (tracking) {
+				/* Native OPT/XWA coordinates use 65536 units per 1600 m.  SDK
+				 * translations are left/up/back in centimetres. */
+				const float scale = AERON_OPT_UNITS_PER_METER * 0.01f;
+				const float local[3] = {-trackir.left_cm, trackir.up_cm, -trackir.back_cm};
+				int* const coord[3] = {
+					&g_players[playerIdx].viewState.savedTargetX,
+					&g_players[playerIdx].viewState.savedTargetY,
+					&g_players[playerIdx].viewState.savedTargetZ
+				};
+				for (int axis = 0; axis < 3; ++axis) {
+					float offset = local[0] * seatRows[axis] +
+						local[1] * seatRows[3 + axis] + local[2] * seatRows[6 + axis];
+					*coord[axis] += (int)lroundf(offset * scale);
+				}
+			}
+#endif
 		}
 	}
 
