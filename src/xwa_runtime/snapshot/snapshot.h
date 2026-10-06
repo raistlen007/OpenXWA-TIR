@@ -568,6 +568,7 @@ typedef struct XwaCockpit {
 	int16_t aim_angle_b;
 	float hardpoint_world[3]; /* seat eye hardpoint (player.hardpointWorld*) */
 	float camera_pan[3];      /* viewState.cameraPanDelta* (classic scales by 1/16) */
+	float trackir_head_offset[3]; /* transient eye displacement, world/OPT units */
 	/* Weapon hardpoint in the player CRAFT's model space
 	 * (player.hardpointLocal*) — the classic anchors the weapon-fire
 	 * pulse point lights here. */
