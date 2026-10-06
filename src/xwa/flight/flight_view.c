@@ -1131,9 +1131,10 @@ void FlightView_UpdatePlayerCamera(int playerIdx) {
 			XwaTrackIRPose trackir = {0};
 			float seatRows[9] = {0};
 			int tracking = 0;
-			/* Only the living pilot's normal in-cockpit mission view. */
+			/* Only the local pilot's normal in-cockpit view (flight or hangar).
+			 * Never follow automatic hangar camera shots or outside views. */
 			if (playerIdx == g_localPlayer && !g_filmRecording && !g_filmPlaybackMode &&
-				!g_inHangarReady && g_players[playerIdx].cockpitVisible &&
+				g_players[playerIdx].cockpitVisible &&
 				g_players[playerIdx].currentSeatIdx == 0 &&
 				g_players[playerIdx].cockpitLookAvailable &&
 				cameraFocusObjIdx == (unsigned int)g_players[playerIdx].objectIndex) {
@@ -1203,10 +1204,12 @@ void FlightView_UpdatePlayerCamera(int playerIdx) {
 				g_players[playerIdx].viewState.cameraPanDeltaZ >> 4;
 #ifdef XWA_MODERN
 			if (tracking) {
-				/* Native OPT/XWA coordinates use 65536 units per 1600 m.  SDK
-				 * translations are left/up/back in centimetres. */
+				/* Native OPT/XWA coordinates use 65536 units per 1600 m. SDK
+				 * translations are left/up/back in centimetres. The offset is
+				 * exclusively visual; the craft's simulation pose is untouched. */
 				const float scale = AERON_OPT_UNITS_PER_METER * 0.01f;
 				const float local[3] = {-trackir.left_cm, trackir.up_cm, -trackir.back_cm};
+				float headWorldOffset[3] = {0};
 				int* const coord[3] = {
 					&g_players[playerIdx].viewState.savedTargetX,
 					&g_players[playerIdx].viewState.savedTargetY,
@@ -1215,8 +1218,13 @@ void FlightView_UpdatePlayerCamera(int playerIdx) {
 				for (int axis = 0; axis < 3; ++axis) {
 					float offset = local[0] * seatRows[axis] +
 						local[1] * seatRows[3 + axis] + local[2] * seatRows[6 + axis];
-					*coord[axis] += (int)lroundf(offset * scale);
+					const int shift = (int)lroundf(offset * scale);
+					*coord[axis] += shift;
+					headWorldOffset[axis] = (float)shift;
 				}
+				/* Keep the cockpit model attached to the ship, not to the new
+				 * eye position. The HD renderer subtracts exactly this offset. */
+				XwaTrackIR_SetCameraOffset(headWorldOffset);
 			}
 #endif
 		}
