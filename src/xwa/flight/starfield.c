@@ -1013,7 +1013,7 @@ void Flight_InitInboundHyperspaceStreaks(void) {
  * the active camera after TrackIR look is applied. */
 static int FlightStarfield_ProjectShipFlash(FlightTexQuad* quad) {
 	const int objectIdx = g_players[g_localPlayer].objectIndex;
-	const ObjectRecord* ship;
+	ObjectRecord* ship;
 	int worldX, worldY, worldZ;
 	int viewX, viewY, viewZ;
 
