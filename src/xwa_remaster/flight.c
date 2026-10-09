@@ -1921,11 +1921,7 @@ static int fl_temporal_pose_changed(const XwaSnapshot* current, const XwaSnapsho
 			   0 ||
 		   memcmp(cockpit->camera_pan, prev_cockpit->camera_pan, sizeof cockpit->camera_pan) != 0 ||
 		   memcmp(cockpit->trackir_head_offset, prev_cockpit->trackir_head_offset,
-				  sizeof cockpit->trackir_head_offset) != 0 ||
-		   cockpit->turret_seat_base_valid != prev_cockpit->turret_seat_base_valid ||
-		   (cockpit->turret_seat_base_valid &&
-			memcmp(cockpit->turret_seat_base_rows, prev_cockpit->turret_seat_base_rows,
-				   sizeof cockpit->turret_seat_base_rows) != 0);
+				  sizeof cockpit->trackir_head_offset) != 0;
 }
 
 static int fl_cockpit_model_matrix(const XwaCockpit* cockpit, const XwaFlightObject* anchor,
