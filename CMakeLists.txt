@@ -267,6 +267,7 @@ add_library(xwa_remaster STATIC
     src/xwa_remaster/original_2d.c
     src/xwa_remaster/sky_stars.c
     src/xwa_remaster/assets.c
+    src/xwa_remaster/frontend_font_aa.c
     src/xwa_remaster/text.c
 )
 if(XWA_ENABLE_DEBUG_UI)
@@ -296,7 +297,6 @@ aeron_compile_hlsl(XWA_SHADER_OUTPUTS ${CMAKE_BINARY_DIR}/shaders
     ${CMAKE_CURRENT_SOURCE_DIR}/shaders/hyperspace_environment.comp.hlsl
     ${CMAKE_CURRENT_SOURCE_DIR}/shaders/sky_stars.vert.hlsl
     ${CMAKE_CURRENT_SOURCE_DIR}/shaders/sky_stars.frag.hlsl
-    ${CMAKE_CURRENT_SOURCE_DIR}/shaders/frontend_font_smooth.comp.hlsl
 )
 add_custom_target(xwa_shaders DEPENDS ${XWA_SHADER_OUTPUTS})
 add_dependencies(xwa_remaster xwa_shaders)

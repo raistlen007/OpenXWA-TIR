@@ -1,43 +1,26 @@
 #!/usr/bin/env python3
-"""Source-level guard for frontend-only GPU font coverage filtering.
+"""Guard that frontend ABP fonts use pre-upload coverage reconstruction.
 
-This checks the exact regression where the default baked font path silently
-skipped the filter. GPU output quality still requires an in-game screenshot.
+Shaders had no observable effect in menu screenshots. This guards the CPU
+path actually supplying pixels to the original frontend atlas loader.
 """
 from pathlib import Path
 import re
 
-root = Path(__file__).resolve().parents[1]
-assets = (root / "src/xwa_remaster/assets.c").read_text()
-shader = (root / "shaders/frontend_font_smooth.comp.hlsl").read_text()
-config = (root / "resources/remaster/config.yaml").read_text()
-cmake = (root / "CMakeLists.txt").read_text()
+root=Path(__file__).resolve().parents[1]
+assets=(root/"src/xwa_remaster/assets.c").read_text()
+cmake=(root/"CMakeLists.txt").read_text()
+config=(root/"resources/remaster/config.yaml").read_text()
+aa=(root/"src/xwa_remaster/frontend_font_aa.c").read_text()
 
-assert re.search(r"^\s*prefer_original_2d:\s*false", config, re.MULTILINE), (
-    "Test must cover the shipped default: baked/remastered fonts first"
-)
-frontend_loader = assets.split("static AssetLoadStatus assets_load_frontend_font(", 1)[1]
-frontend_loader = frontend_loader.split("static int assets_prepare_frontend_fonts(", 1)[0]
-assert "AeronFontAtlas_Load(&slot->atlas, cmd, basename)" in frontend_loader
-assert "assets_load_original_frontend_font(a, cmd, slot, font_size)" in frontend_loader
-success = frontend_loader.split("if (status == ASSET_LOAD_SUCCESS) {", 1)[1]
-success = success.split("Aeron_LogInfo(", 1)[0]
-assert "assets_smooth_frontend_font(a, cmd, slot);" in success, (
-    "Both successful font sources must submit the smoothing pass"
-)
-assert "if (source == ASSET_SOURCE_ORIGINAL)" not in success, (
-    "Do not gate smoothing on original fonts: shipped defaults are baked"
-)
-assert "frontend_font_smooth.comp.hlsl" in cmake
-assert "src.rgb / src.a" in shader and "float4(ink * alpha, alpha)" in shader, (
-    "Filtered alpha and RGB must remain premultiplied together"
-)
-flight_loader = assets.split("static AssetLoadStatus assets_load_flight_font(", 1)[1]
-flight_loader = flight_loader.split("int XwaRemasterAssets_PrepareFlightFonts(", 1)[0]
-assert "assets_smooth_frontend_font(" not in flight_loader, (
-    "Do not alter cockpit or in-flight font atlases"
-)
-assert "GPU coverage smoothing submitted" in assets, (
-    "Keep diagnostic logging for validation on actual hardware"
-)
-print("Frontend font smoothing: both menu font paths covered; flight fonts excluded; PMA intact.")
+assert re.search(r"^\s*prefer_original_2d:\s*false",config,re.M)
+assert not list((root/"resources/remaster/fonts").glob("*.fnt")) if (root/"resources/remaster/fonts").exists() else True
+assert "frontend_font_aa.c" in cmake
+assert "frontend_font_smooth.comp.hlsl" not in cmake
+assert "XwaFrontendFontAA_Upscale" in assets
+assert "XWA_ORIGINAL_FONT_SCALE, 0, 1," in assets
+assert "XWA_ORIGINAL_FONT_SCALE, 1, 0," in assets
+assert "assets_smooth_frontend_font" not in assets
+assert "CPU high-quality AA atlas prepared" in assets
+assert "weighted_alpha" in aa and "pixel[3]" in aa
+print("Frontend atlas is anti-aliased before GPU upload; flight fonts keep their original sampling.")
