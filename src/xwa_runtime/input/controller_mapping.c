@@ -19,6 +19,7 @@ typedef struct XwaControllerMappingState {
 	uint64_t digital_axis_buttons[2];
 	uint64_t pending_buttons[2];
 	int previous_pov[2];
+	uint32_t actions_instance_id[2];
 } XwaControllerMappingState;
 
 static XwaControllerMappingState g_controllerMapping;
@@ -291,6 +292,7 @@ void XwaControllerMapping_SetOptions(const XwaControllerOptions* options) {
 	g_controllerMapping.digital_axis_buttons[0] = 0;
 	g_controllerMapping.pending_buttons[0] = 0;
 	g_controllerMapping.previous_pov[0] = -1;
+	g_controllerMapping.actions_instance_id[0] = 0;
 }
 
 void XwaControllerMapping_SetSecondaryOptions(const XwaControllerOptions* options) {
@@ -305,6 +307,7 @@ void XwaControllerMapping_SetSecondaryOptions(const XwaControllerOptions* option
 	g_controllerMapping.digital_axis_buttons[1] = 0;
 	g_controllerMapping.pending_buttons[1] = 0;
 	g_controllerMapping.previous_pov[1] = -1;
+	g_controllerMapping.actions_instance_id[1] = 0;
 }
 
 uint32_t XwaControllerMapping_SelectedInstanceId(void) {
@@ -414,11 +417,19 @@ void XwaControllerMapping_ReadActions(uint16_t* key, int* key_mods) {
 		if (!controller) {
 			g_controllerMapping.pending_buttons[slot] = 0;
 			g_controllerMapping.previous_pov[slot] = -1;
+			g_controllerMapping.actions_instance_id[slot] = 0;
 			continue;
 		}
 		profile = ControllerMapping_Profile(options, controller);
 		ControllerMapping_MapSnapshot(options, controller, 1, g_controllerMapping.digital_axis_buttons[slot],
 									 NULL, &state);
+		/* On connection, do not synthesize presses from latching controls
+		 * that were already on before the game/input device became active. */
+		if (g_controllerMapping.actions_instance_id[slot] != controller->instance_id) {
+			g_controllerMapping.actions_instance_id[slot] = controller->instance_id;
+			g_controllerMapping.pending_buttons[slot] = state.buttons;
+			g_controllerMapping.previous_pov[slot] = state.pov_direction;
+		}
 		previous = g_controllerMapping.pending_buttons[slot];
 		for (int i = 0; i < XWA_CONTROLLER_LOGICAL_BUTTON_COUNT; ++i) {
 			const uint64_t bit = UINT64_C(1) << i;
