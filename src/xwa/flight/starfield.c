@@ -1023,8 +1023,10 @@ static int FlightStarfield_ProjectShipFlash(FlightTexQuad* quad) {
 	/* A flash behind the observer must not jump to screen center. */
 	if (viewZ <= 1024) return 0;
 	quad->screenX = TRANSFM2_ProjectScreenX(viewX, viewZ);
-	/* Classic flash's center uses the inverse of the normal sprite Y offset. */
-	quad->screenY = TRANSFM2_ProjectScreenY(viewY, viewZ) - 2 * g_projOffsetY;
+	/* The sprite coordinates are bottom-origin (RenderQuad_DrawRotatedSprite
+	 * flips them exactly once). Match the ordinary HUD's ship-forward
+	 * projection; subtracting the offset a second time displaced the flash. */
+	quad->screenY = TRANSFM2_ProjectScreenY(viewY, viewZ);
 	return 1;
 }
 
