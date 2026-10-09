@@ -17,6 +17,7 @@ hud = source("src/xwa/flight/hud/hud.c")
 snapshot_hud = source("src/xwa_runtime/snapshot/snapshot_hud.c")
 trackir = source("src/xwa_runtime/input/trackir.c")
 renderer = source("src/xwa_remaster/flight.c")
+mount = source("src/xwa_remaster/turret_mount_frame.h")
 mesh_renderer = source("src/xwa_remaster/ship.c")
 model_types = source("src/xwa/assets/object_type.h")
 native_mesh = source("src/xwa/render/render_scene_model.c")
@@ -97,7 +98,18 @@ check("player_f->object_type != OBJ_FamilyTransport" in renderer and
       "XwaTurretMount_ApplyVentralFacing(bw);" in renderer,
       "Otana-only stable hyperspace cockpit path missing")
 check(renderer.count("XwaTurretMount_CockpitOrigin(") >= 2,
-      "Otana cockpit mount not ship-fixed in flight and hyperspace")
+      "Otana cockpit mount origin recovery missing in flight/hyperspace")
+check(renderer.count("XwaTurretMount_AnchorAtSeatPivot(") == 2 and
+      "cockpit->hardpoint_local, position" in renderer and
+      "snap->cockpit.hardpoint_local, pw" in renderer,
+      "ventral model is no longer anchored about actual native gunner hardpoint")
+check("basis[1 * 3 + axis] = -basis[1 * 3 + axis]" in mount and
+      "basis[2 * 3 + axis] = -basis[2 * 3 + axis]" in mount and
+      "basis[row * 3 + 1] = -basis[row * 3 + 1]" not in mount,
+      "ventral model half-turn must negate LOCAL basis rows, not world columns")
+check("ship_origin_inout[axis] += hardpoint_world[axis] - rotated_pivot" in mount,
+      "ventral pivot compensation dropped; modern cockpit will displace")
+
 check(renderer.count("flipped[1] = -flipped[1];") == 1 and
       renderer.count("e[1] = -e[1];") == 1,
       "unrelated ships' original lower gunner transforms were altered")
