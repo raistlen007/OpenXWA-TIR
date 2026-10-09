@@ -6,6 +6,7 @@
 
 #include "aeron/compat/mmsystem.h"
 #include "aeron/log.h"
+#include "xwa/assets/object_type.h"
 #include "xwa/assets/flight_model.h"
 #include "xwa/assets/model_bounds.h"
 #include "xwa/assets/model_def.h"
@@ -11702,7 +11703,8 @@ void Flight_UpdateEntity(unsigned int playerIdx) {
 				double integrationScale;
 				ModernTurretAngleRemainder* angleRemainder;
 
-				if (seatIdx == 1) {
+				if (seatIdx == 1 &&
+					g_objectTable[g_players[playerIdx].objectIndex].objectType == OBJ_CorellianTransport2) {
 					/* The ventral turret retains its exact pre-TrackIR gunner
 					 * response. The faster upper-turret path is unchanged. */
 				if (XwaModernFlightTiming_IsHighRate()) {
