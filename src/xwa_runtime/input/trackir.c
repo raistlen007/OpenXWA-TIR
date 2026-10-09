@@ -10,14 +10,10 @@
 static XwaTrackIRPose s_pose;
 static int s_pose_valid;
 static float s_camera_offset[3];
-static float s_turret_aim_world[3];
-static int s_turret_aim_valid;
 
 void XwaTrackIR_ClearPose(void) {
     memset(&s_pose, 0, sizeof s_pose);
     memset(s_camera_offset, 0, sizeof s_camera_offset);
-    memset(s_turret_aim_world, 0, sizeof s_turret_aim_world);
-    s_turret_aim_valid = 0;
     s_pose_valid = 0;
 }
 
@@ -31,20 +27,6 @@ void XwaTrackIR_GetCameraOffset(float world_offset[3]) {
     if (world_offset) {
         memcpy(world_offset, s_camera_offset, sizeof s_camera_offset);
     }
-}
-
-void XwaTrackIR_SetTurretAimDirection(const float world_direction[3]) {
-    if (world_direction && s_pose_valid) {
-        memcpy(s_turret_aim_world, world_direction, sizeof s_turret_aim_world);
-        s_turret_aim_valid = 1;
-    }
-}
-
-int XwaTrackIR_GetTurretAimDirection(float world_direction[3]) {
-    if (world_direction) {
-        memcpy(world_direction, s_turret_aim_world, sizeof s_turret_aim_world);
-    }
-    return s_turret_aim_valid;
 }
 
 int XwaTrackIR_CurrentPose(XwaTrackIRPose* out) {
