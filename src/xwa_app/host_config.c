@@ -883,6 +883,22 @@ static int host_config_validate_input_maps(const AeronConfigFile* config, char* 
 		"input.controller.joystick.axes.throttle",
 		"input.controller.joystick.axes.roll",
 		"input.controller.joystick.buttons",
+		"input.controller2",
+		"input.controller2.device",
+		"input.controller2.gamepad",
+		"input.controller2.gamepad.axes",
+		"input.controller2.gamepad.axes.yaw",
+		"input.controller2.gamepad.axes.pitch",
+		"input.controller2.gamepad.axes.throttle",
+		"input.controller2.gamepad.axes.roll",
+		"input.controller2.gamepad.buttons",
+		"input.controller2.joystick",
+		"input.controller2.joystick.axes",
+		"input.controller2.joystick.axes.yaw",
+		"input.controller2.joystick.axes.pitch",
+		"input.controller2.joystick.axes.throttle",
+		"input.controller2.joystick.axes.roll",
+		"input.controller2.joystick.buttons",
 	};
 	size_t i;
 
@@ -1067,7 +1083,7 @@ int XwaHostConfig_SaveGameDataPath(AeronVfs* vfs, const char* game_data_path, ch
 	return host_config_save_user_document(vfs, document, error, error_size);
 }
 
-static int host_config_set_controller_axis(AeronConfigFile* document, const char* profile_name,
+static int host_config_set_controller_axis(AeronConfigFile* document, const char* base, const char* profile_name,
 										   const char* name, const XwaControllerAxisBinding* binding,
 										   int gamepad, AeronConfigError* error) {
 	char path[128];
@@ -1081,7 +1097,7 @@ static int host_config_set_controller_axis(AeronConfigFile* document, const char
 			return 0;
 		}
 	}
-	snprintf(path, sizeof path, "input.controller.%s.axes.%s.source", profile_name, name);
+	snprintf(path, sizeof path, "%s.%s.axes.%s.source", base, profile_name, name);
 	if (gamepad || binding->source < 0) {
 		if (!AeronConfigFile_SetString(document, path, source_name, error)) {
 			return 0;
@@ -1089,21 +1105,21 @@ static int host_config_set_controller_axis(AeronConfigFile* document, const char
 	} else if (!AeronConfigFile_SetInt(document, path, binding->source, error)) {
 		return 0;
 	}
-	snprintf(path, sizeof path, "input.controller.%s.axes.%s.invert", profile_name, name);
+	snprintf(path, sizeof path, "%s.%s.axes.%s.invert", base, profile_name, name);
 	if (!AeronConfigFile_SetBool(document, path, binding->invert, error)) {
 		return 0;
 	}
-	snprintf(path, sizeof path, "input.controller.%s.axes.%s.deadzone", profile_name, name);
+	snprintf(path, sizeof path, "%s.%s.axes.%s.deadzone", base, profile_name, name);
 	return AeronConfigFile_SetFloat(document, path, binding->deadzone, error);
 }
 
-static int host_config_set_controller_button(AeronConfigFile* document, const char* profile_name,
+static int host_config_set_controller_button(AeronConfigFile* document, const char* base, const char* profile_name,
 											 const char* key, const AeronControllerDigitalSource* binding,
 											 int gamepad, AeronConfigError* error) {
 	char path[128];
 	const char* source_name;
 
-	snprintf(path, sizeof path, "input.controller.%s.buttons.%s", profile_name, key);
+	snprintf(path, sizeof path, "%s.%s.buttons.%s", base, profile_name, key);
 
 	if (binding->kind == AERON_CONTROLLER_DIGITAL_NONE) {
 		return AeronConfigFile_SetString(document, path, "none", error);
@@ -1151,7 +1167,7 @@ static int host_config_set_controller_button(AeronConfigFile* document, const ch
 	return 0;
 }
 
-static int host_config_set_controller_actions(AeronConfigFile* document, const char* profile_name,
+static int host_config_set_controller_actions(AeronConfigFile* document, const char* base, const char* profile_name,
 											  const uint16_t actions[XWA_CONTROLLER_ACTION_COUNT],
 											  AeronConfigError* error) {
 	AeronConfigValue items[XWA_CONTROLLER_ACTION_COUNT];
@@ -1165,11 +1181,11 @@ static int host_config_set_controller_actions(AeronConfigFile* document, const c
 	}
 	sequence.value.sequence.values = items;
 	sequence.value.sequence.count = XWA_CONTROLLER_ACTION_COUNT;
-	snprintf(path, sizeof path, "input.controller.%s.actions", profile_name);
+	snprintf(path, sizeof path, "%s.%s.actions", base, profile_name);
 	return AeronConfigFile_SetValue(document, path, &sequence, error);
 }
 
-static int host_config_set_controller_profile(AeronConfigFile* document, const char* profile_name,
+static int host_config_set_controller_profile(AeronConfigFile* document, const char* base, const char* profile_name,
 											  const XwaControllerProfile* profile, int gamepad,
 											  AeronConfigError* error) {
 	static const char* const axis_names[XWA_CONTROLLER_LOGICAL_AXIS_COUNT] = { "yaw", "pitch", "throttle",
@@ -1178,7 +1194,7 @@ static int host_config_set_controller_profile(AeronConfigFile* document, const c
 	int i;
 
 	for (i = 0; i < XWA_CONTROLLER_LOGICAL_AXIS_COUNT; ++i) {
-		if (!host_config_set_controller_axis(document, profile_name, axis_names[i], &profile->axes[i],
+		if (!host_config_set_controller_axis(document, base, profile_name, axis_names[i], &profile->axes[i],
 											 gamepad, error)) {
 			return 0;
 		}
@@ -1187,18 +1203,18 @@ static int host_config_set_controller_profile(AeronConfigFile* document, const c
 		char key[8];
 
 		snprintf(key, sizeof(key), "%d", i + 1);
-		if (!host_config_set_controller_button(document, profile_name, key, &profile->buttons[i], gamepad,
+		if (!host_config_set_controller_button(document, base, profile_name, key, &profile->buttons[i], gamepad,
 											   error)) {
 			return 0;
 		}
 	}
 	if (gamepad) {
-		snprintf(path, sizeof path, "input.controller.%s.pov", profile_name);
+		snprintf(path, sizeof path, "%s.%s.pov", base, profile_name);
 		if (!AeronConfigFile_SetString(document, path, profile->pov_source ? "dpad" : "none", error)) {
 			return 0;
 		}
 	} else {
-		snprintf(path, sizeof path, "input.controller.%s.pov_hat", profile_name);
+		snprintf(path, sizeof path, "%s.%s.pov_hat", base, profile_name);
 		if (profile->pov_source >= 0) {
 			if (!AeronConfigFile_SetInt(document, path, profile->pov_source, error)) {
 				return 0;
@@ -1207,7 +1223,7 @@ static int host_config_set_controller_profile(AeronConfigFile* document, const c
 			return 0;
 		}
 	}
-	return host_config_set_controller_actions(document, profile_name, profile->actions, error);
+	return host_config_set_controller_actions(document, base, profile_name, profile->actions, error);
 }
 
 static int host_config_set_head_tracking(AeronConfigFile* document, const XwaHeadTrackingOptions* head,
@@ -1228,32 +1244,38 @@ static int host_config_set_head_tracking(AeronConfigFile* document, const XwaHea
 	return 1;
 }
 
-static int host_config_set_input_options(AeronConfigFile* document, const XwaModernInputOptions* options,
-										 AeronConfigError* error) {
-	static const char* const mode_names[] = { "position", "rate" };
+static int host_config_set_controller_options(AeronConfigFile* document, const char* base,
+										  const XwaControllerOptions* controller, AeronConfigError* error) {
+	char path[128];
+	snprintf(path, sizeof path, "%s.enabled", base);
+	if (!AeronConfigFile_SetBool(document, path, controller->enabled, error)) return 0;
+	snprintf(path, sizeof path, "%s.device.guid", base);
+	if (!AeronConfigFile_SetString(document, path, controller->device.guid, error)) return 0;
+	snprintf(path, sizeof path, "%s.device.path", base);
+	if (!AeronConfigFile_SetString(document, path, controller->device.path, error)) return 0;
+	snprintf(path, sizeof path, "%s.device.ordinal", base);
+	if (!AeronConfigFile_SetInt(document, path, controller->device.ordinal, error)) return 0;
+	snprintf(path, sizeof path, "%s.roll_enabled", base);
+	if (!AeronConfigFile_SetBool(document, path, controller->roll_enabled, error)) return 0;
+	snprintf(path, sizeof path, "%s.rumble_enabled", base);
+	if (!AeronConfigFile_SetBool(document, path, controller->rumble_enabled, error)) return 0;
+	snprintf(path, sizeof path, "%s.rumble_strength", base);
+	return AeronConfigFile_SetInt(document, path, controller->rumble_strength, error) &&
+		host_config_set_controller_profile(document, base, "gamepad", &controller->gamepad, 1, error) &&
+		host_config_set_controller_profile(document, base, "joystick", &controller->joystick, 0, error);
+}
 
-	if (!XwaModernInputOptions_Validate(options)) {
-		return 0;
-	}
+static int host_config_set_input_options(AeronConfigFile* document, const XwaModernInputOptions* options,
+											 AeronConfigError* error) {
+	static const char* const mode_names[] = { "position", "rate" };
+	if (!XwaModernInputOptions_Validate(options)) return 0;
 	return AeronConfigFile_SetBool(document, "input.mouse_flight", options->mouse_flight_enabled, error) &&
-		   AeronConfigFile_SetString(document, "input.mouse_mode", mode_names[options->mouse_mode], error) &&
-		   AeronConfigFile_SetInt(document, "input.mouse_sensitivity", options->mouse_sensitivity, error) &&
-		   AeronConfigFile_SetBool(document, "input.mouse_invert_y", options->mouse_invert_y, error) &&
-		   host_config_set_head_tracking(document, &options->head_tracking, error) &&
-		   AeronConfigFile_SetString(document, "input.controller.device.guid",
-									 options->controller.device.guid, error) &&
-		   AeronConfigFile_SetString(document, "input.controller.device.path",
-									 options->controller.device.path, error) &&
-		   AeronConfigFile_SetInt(document, "input.controller.device.ordinal",
-								  options->controller.device.ordinal, error) &&
-		   AeronConfigFile_SetBool(document, "input.controller.roll_enabled",
-								   options->controller.roll_enabled, error) &&
-		   AeronConfigFile_SetBool(document, "input.controller.rumble_enabled",
-								   options->controller.rumble_enabled, error) &&
-		   AeronConfigFile_SetInt(document, "input.controller.rumble_strength",
-								  options->controller.rumble_strength, error) &&
-		   host_config_set_controller_profile(document, "gamepad", &options->controller.gamepad, 1, error) &&
-		   host_config_set_controller_profile(document, "joystick", &options->controller.joystick, 0, error);
+		AeronConfigFile_SetString(document, "input.mouse_mode", mode_names[options->mouse_mode], error) &&
+		AeronConfigFile_SetInt(document, "input.mouse_sensitivity", options->mouse_sensitivity, error) &&
+		AeronConfigFile_SetBool(document, "input.mouse_invert_y", options->mouse_invert_y, error) &&
+		host_config_set_head_tracking(document, &options->head_tracking, error) &&
+		host_config_set_controller_options(document, "input.controller", &options->controller, error) &&
+		host_config_set_controller_options(document, "input.controller2", &options->controller2, error);
 }
 
 int XwaHostConfig_SaveInputOptions(AeronVfs* vfs, const XwaModernInputOptions* options, char* error,
