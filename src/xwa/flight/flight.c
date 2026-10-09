@@ -11710,7 +11710,8 @@ void Flight_UpdateEntity(unsigned int playerIdx) {
 											 XwaModernFlightTiming_IsHighRate());
 				accumA = XwaTurretAim_UpdateAccumulator(
 					craft->turretAim.aimAccumA[seatIdx],
-					g_players[playerIdx].smoothedInputPitch, integrationScale);
+					XwaTurretAim_PitchInputForSeat(seatIdx, g_players[playerIdx].smoothedInputPitch),
+					integrationScale);
 				accumB = XwaTurretAim_UpdateAccumulator(
 					craft->turretAim.aimAccumB[seatIdx],
 					g_players[playerIdx].smoothedInputYaw, integrationScale);
