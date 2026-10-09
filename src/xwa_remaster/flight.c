@@ -3144,6 +3144,7 @@ static void fl_hyper_build_tunnel_view(const XwaRemasterFlightView* view, const 
 	out->proj_offset_x = camera->proj_x_offset;
 	out->proj_offset_y = camera->proj_y_offset;
 	if (!player_found) {
+		out->flash_center_valid = -1; /* No ship axis: suppress the flare. */
 		return;
 	}
 
@@ -3175,22 +3176,10 @@ static void fl_hyper_build_tunnel_view(const XwaRemasterFlightView* view, const 
 	memcpy(out->right, right, sizeof out->right);
 	memcpy(out->up, up, sizeof out->up);
 	memcpy(out->forward, forward, sizeof out->forward);
-	/* The transition flash must be exactly where the normal flight HUD
-	 * projects the ship's forward direction. Do not duplicate the camera's
-	 * projection arithmetic or invent cockpit / widescreen offsets. */
-	if (forward[2] <= 0.0001f) {
-		out->flash_center_valid = -1;
-	} else {
-		float pixel_x, pixel_y;
-		if (XwaRemasterFlight_ProjectView(view, forward, &pixel_x, &pixel_y) &&
-			isfinite(pixel_x) && isfinite(pixel_y)) {
-			out->flash_center_uv[0] = (pixel_x - (float)view->viewport.x) / (float)view->viewport.width;
-			out->flash_center_uv[1] = (pixel_y - (float)view->viewport.y) / (float)view->viewport.height;
-			out->flash_center_valid = 1;
-		} else {
-			out->flash_center_valid = -1;
-		}
-	}
+	/* The shader evaluates angular separation directly against the ship axis.
+	 * Do not separately project this direction into 2D (a prior source of
+	 * camera- and viewport-dependent offset). */
+	out->flash_center_valid = forward[2] > 0.0001f ? 1 : -1;
 }
 
 /* Hyperspace uses the same state-derived cockpit transform and articulation
