@@ -1,6 +1,19 @@
 #ifndef XWA_REMASTER_TURRET_MOUNT_FRAME_H
 #define XWA_REMASTER_TURRET_MOUNT_FRAME_H
 
+#include "xwa/assets/object_type.h"
+
+/* The classic renderer applies the same ventral (second gunner seat)
+ * local 180-degree model rotation on both the YT-2000 (Otana) and
+ * Millennium Falcon. The remaster MUST use the native pivot formulation
+ * for these models, never the camera-relative legacy reconstruction.
+ * Keep other craft on their existing paths until parity is established. */
+static inline int XwaTurretMount_UsesClassicPivot(int seat, unsigned int object_type) {
+    return seat == 2 &&
+           (object_type == OBJ_FamilyTransport ||
+            object_type == OBJ_MilleniumFalcon2);
+}
+
 /* Convert the snapshot's eye position back into the underlying craft origin.
  * hardpoint_world is the current aim-dependent native gunner eye hardpoint,
  * camera_pan and head_world belong exclusively to the observer. */
