@@ -1,5 +1,5 @@
-/* Otana ventral turret: cockpit housing must remain at the ship's rigid
- * origin while the turret aims and the pilot moves their TrackIR head.
+/* Pilot and upper gunner still use ship-fixed cockpit mounting; the lower
+ * turret intentionally restores its original pre-TrackIR transform.
  * cc -std=c99 -Wall -Wextra -Werror -Isrc tests/turret_mount_regression.c -lm -o /tmp/xwa-turret-test
  * /tmp/xwa-turret-test
  */
@@ -12,9 +12,8 @@ static void check(int ok, const char* reason) {
     if (!ok) { fprintf(stderr, "turret mount: %s\n", reason); exit(1); }
 }
 
-/* The lower turret eye position changes with its hardpoint location as
- * the guns move. The OPT cockpit model does not: gun/launcher components
- * rotate about their OWN pivots via the mesh table. */
+/* The unchanged fixed-mount path for pilot and upper turret remains
+ * independent of weapon rotation and head translation. */
 int main(void) {
     const float ship_origin[3] = { 10000.0f, -2500.0f, 810.0f };
     const float pan[3] = { 64.0f, -16.0f, 32.0f };
@@ -33,7 +32,7 @@ int main(void) {
         { 0.0f, 0.0f, -60.0f },
         { 35.0f, -15.0f, 85.0f }
     };
-    for (int seat = 0; seat <= 2; ++seat) {
+    for (int seat = 0; seat < 2; ++seat) {
         for (int gun = 0; gun < 6; ++gun) {
             for (int head = 0; head < 5; ++head) {
                 const float* hardpoint = gun_aim_hardpoints[gun];
@@ -51,9 +50,8 @@ int main(void) {
             }
         }
     }
-    /* Old lower-turret eye-space flip was not an independent rigid
-     * transform: gun yaw changed its rotation axis. Our new cockpit
-     * matrix is derived solely from ship orientation, for all seats. */
-    puts("turret mount regression passed (pilot/upper/lower: rigid ship origin under gun aim and head motion)");
+    /* Ventral turret is intentionally not covered by this helper: its
+     * original cockpit transform is restored until in-game verification. */
+    puts("turret mount regression passed (pilot/upper remain ship-fixed)");
     return 0;
 }
