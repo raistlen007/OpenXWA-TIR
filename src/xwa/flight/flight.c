@@ -11704,7 +11704,7 @@ void Flight_UpdateEntity(unsigned int playerIdx) {
 				ModernTurretAngleRemainder* angleRemainder;
 
 				if (seatIdx == 1 &&
-					g_objectTable[g_players[playerIdx].objectIndex].objectType == OBJ_CorellianTransport2) {
+					g_objectTable[g_players[playerIdx].objectIndex].objectType == OBJ_FamilyTransport) {
 					/* The ventral turret retains its exact pre-TrackIR gunner
 					 * response. The faster upper-turret path is unchanged. */
 				if (XwaModernFlightTiming_IsHighRate()) {
