@@ -3,6 +3,7 @@
 #include "xwa/flight/hangar.h"
 
 #include "xwa/assets/file_io.h"
+#include "xwa/assets/object_type.h"
 #include "xwa/assets/flight_model.h"
 #include "xwa/assets/model_def.h"
 #include "xwa/assets/model_mesh.h"
@@ -6874,7 +6875,9 @@ void Hud_DrawReticle3D(void) {
 	int16_t effectiveLookYaw = g_players[g_localPlayer].lookYawOffset;
 	int16_t effectiveLookPitch = g_players[g_localPlayer].lookPitchOffset;
 	XwaTrackIRPose head;
-	if (g_players[g_localPlayer].currentSeatIdx != 2 && XwaTrackIR_CurrentPose(&head)) {
+	if (!(g_players[g_localPlayer].currentSeatIdx == 2 &&
+		  g_objectTable[g_players[g_localPlayer].objectIndex].objectType == OBJ_CorellianTransport2) &&
+		XwaTrackIR_CurrentPose(&head)) {
 		effectiveLookYaw = (int16_t)(effectiveLookYaw + head.yaw_q16);
 		effectiveLookPitch = (int16_t)(effectiveLookPitch + head.pitch_q16);
 	}
@@ -6935,7 +6938,8 @@ void Hud_DrawReticle3D(void) {
 		 * whether TrackIR is connected or not. Head movement changes only
 		 * the projection, never the aim or projectile direction. */
 		if (g_players[g_localPlayer].currentSeatIdx > 0 &&
-			g_players[g_localPlayer].currentSeatIdx != 2) {
+			!(g_players[g_localPlayer].currentSeatIdx == 2 &&
+			  g_objectTable[g_players[g_localPlayer].objectIndex].objectType == OBJ_CorellianTransport2)) {
 			const int playerObjIdx = g_players[g_localPlayer].objectIndex;
 			const int16_t* bore = g_players[g_localPlayer].turretCamMat;
 			const int32_t farDistance = 1000000;
