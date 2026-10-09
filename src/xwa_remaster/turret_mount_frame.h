@@ -1,17 +1,9 @@
 #ifndef XWA_REMASTER_TURRET_MOUNT_FRAME_H
 #define XWA_REMASTER_TURRET_MOUNT_FRAME_H
 
-/* Cockpit and turret housing are rigid parts of the ship. Gun components
- * animate independently via OPT rotary nodes. The original ventral seating
- * used a 180-degree inversion in the VIEW basis; using that moving basis in
- * the remaster causes the entire housing to orbit whenever the guns turn.
- * Apply the same lower-facing orientation in the static SHIP basis instead.
- *
- * The camera is at ship origin + seat hardpoint + pan + head displacement.
- * Subtract those eye-only offsets directly in WORLD coordinates to recover
- * the invariant craft origin. NEVER rotate the cockpit through the eye
- * frame: no yaw/pitch/roll from either TrackIR or turret aim belongs here.
- */
+/* Convert the snapshot's eye position back into the underlying craft origin.
+ * hardpoint_world is the current aim-dependent native gunner eye hardpoint,
+ * camera_pan and head_world belong exclusively to the observer. */
 static inline void XwaTurretMount_CockpitOrigin(
     const float camera_local[3], const float head_world[3],
     const float hardpoint_world[3], const float camera_pan[3],
@@ -22,14 +14,39 @@ static inline void XwaTurretMount_CockpitOrigin(
     }
 }
 
-/* Original ventral seat faces 180 degrees opposite the dorsal one.
- * Rotate the turret OPT in its fixed ship-local frame, NEVER the camera
- * frame (which follows turret yaw/pitch). X is the fixed local side axis.
- * This is a proper half-turn with determinant +1, not a reflection. */
+/* The ORIGINAL renderer's ventral-seat operation is a 180-degree turn
+ * around the gunner eye pivot in MODEL SPACE, not a turn of the ship in
+ * world space. fl_model_matrix transposes these basis rows to construct
+ * the model-to-world matrix: negate LOCAL axes (ROWS 1 and 2), NEVER
+ * the world-coordinate columns. R = diag(1,-1,-1), det(R)=+1.
+ * Camera / TrackIR rotations must not enter this basis. */
 static inline void XwaTurretMount_ApplyVentralFacing(float basis[9]) {
-    for (int row = 0; row < 3; ++row) {
-        basis[row * 3 + 1] = -basis[row * 3 + 1];
-        basis[row * 3 + 2] = -basis[row * 3 + 2];
+    for (int axis = 0; axis < 3; ++axis) {
+        basis[1 * 3 + axis] = -basis[1 * 3 + axis];
+        basis[2 * 3 + axis] = -basis[2 * 3 + axis];
+    }
+}
+
+/* Reproduce the classic RenderScene_DrawObjectModel ventral pivot:
+ *   T = ship_origin + hardpoint_world - flipped_model_to_world * hardpoint_local
+ * The native renderer rotates the cockpit ABOUT mesh.pos (the gunner's
+ * current hardpoint), translating the model as well as reorienting it.
+ * Without this translation the entire cockpit is displaced by roughly
+ * twice its ventral mounting offset; this was visible in modern mode
+ * while F5/classic rendered the same seat correctly.
+ *
+ * The recovered ship origin is input/output; only the model placement is
+ * corrected. This does not move the camera, guns, aiming or projectiles.
+ */
+static inline void XwaTurretMount_AnchorAtSeatPivot(
+    const float flipped_basis[9], const float hardpoint_world[3],
+    const float hardpoint_local[3], float ship_origin_inout[3]) {
+    for (int axis = 0; axis < 3; ++axis) {
+        const float rotated_pivot =
+            flipped_basis[0 * 3 + axis] * hardpoint_local[0] +
+            flipped_basis[1 * 3 + axis] * hardpoint_local[1] +
+            flipped_basis[2 * 3 + axis] * hardpoint_local[2];
+        ship_origin_inout[axis] += hardpoint_world[axis] - rotated_pivot;
     }
 }
 
