@@ -22,10 +22,6 @@ void XwaTrackIR_ClearPose(void);
  * The cockpit renderer needs this to keep the mesh anchored to the craft. */
 void XwaTrackIR_SetCameraOffset(const float world_offset[3]);
 void XwaTrackIR_GetCameraOffset(float world_offset[3]);
-/* When tracking from a turret, preserve the pre-head-look firing direction.
- * Both classic and HD reticles project this direction, not ship-forward. */
-void XwaTrackIR_SetTurretAimDirection(const float world_direction[3]);
-int XwaTrackIR_GetTurretAimDirection(float world_direction[3]);
 void XwaTrackIR_Shutdown(void);
 
 #endif
