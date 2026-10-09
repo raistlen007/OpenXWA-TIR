@@ -59,11 +59,18 @@ check("XwaTrackIR_SetTurretAimDirection" not in camera and
       "TrackIR still owns extra turret weapon-aim state")
 check("XwaTurretMount_CockpitOrigin(" in renderer,
       "ship-fixed cockpit mount was lost")
-check("cockpit->seat == 2" in renderer[renderer.index("static int fl_cockpit_model_matrix"):renderer.index("static const float fl_default_uvs")] and
-      "flipped[1] = -flipped[1];" in renderer,
-      "pre-TrackIR ventral cockpit flip was not restored")
-check("snap->cockpit.seat == 2" in renderer and "e[1] = -e[1];" in renderer,
-      "pre-TrackIR ventral cockpit flip was not restored for hyperspace")
+check("if (cockpit->seat == 2)" in renderer and
+      "XwaTurretMount_ApplyVentralFacing(basis);" in renderer,
+      "bottom turret fixed local-X orientation missing")
+check("if (snap->cockpit.seat == 2)" in renderer and
+      "XwaTurretMount_ApplyVentralFacing(bw);" in renderer,
+      "bottom turret fixed local-X orientation missing in hyperspace")
+check("flipped[1] = -flipped[1];" not in renderer and
+      "e[1] = -e[1];" not in renderer and
+      "eye_basis" not in renderer,
+      "camera-dependent original ventral 180-degree rotation reintroduced")
+check(renderer.count("XwaTurretMount_CockpitOrigin(") >= 2,
+      "cockpit mount not ship-fixed in both flight and hyperspace")
 check(camera.count("g_players[playerIdx].currentSeatIdx != 2") >= 2,
       "TrackIR is still being injected into lower-seat camera views")
 check("g_players[g_localPlayer].currentSeatIdx != 2 && XwaTrackIR_CurrentPose" in hud,
@@ -73,4 +80,4 @@ check("player->currentSeatIdx != 2 && XwaTrackIR_CurrentPose" in snapshot_hud,
 check("seatIdx == 1" in flight,
       "lower turret no longer uses its original aim response")
 
-print("turret contracts pass: original lower mount and inputs; native projectile unchanged; upper TrackIR retained")
+print("turret contracts pass: ventral gunner input/projectiles native; housing fixed 180-degrees in ship frame; TrackIR off on lower")
