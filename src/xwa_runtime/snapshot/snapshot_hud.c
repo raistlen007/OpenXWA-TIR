@@ -465,8 +465,15 @@ static void hud_capture_direct_state(XwaHudState* out) {
 	out->reticle.seat = (uint8_t)player->currentSeatIdx;
 	out->reticle.turret_aim_valid = 0;
 	if (player->currentSeatIdx > 0) {
-		out->reticle.turret_aim_valid = (uint8_t)XwaTrackIR_GetTurretAimDirection(
-			out->reticle.turret_aim_world);
+		/* The modern HUD consumes the same pre-head-look gun-bore matrix
+		 * from which laser_createprojectile launches player turret bolts.
+		 * TrackIR must never supply or change weapon aim; it only changes
+		 * how this world-space direction projects into the moving camera. */
+		for (int axis = 0; axis < 3; ++axis) {
+			out->reticle.turret_aim_world[axis] =
+				(float)player->turretCamMat[axis] * (1.0f / 32768.0f);
+		}
+		out->reticle.turret_aim_valid = 1;
 	}
 	out->reticle.stick_marker = 0;
 	if (!g_padlockMouseLookEnabled) {
