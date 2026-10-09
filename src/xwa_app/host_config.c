@@ -625,6 +625,7 @@ static int host_config_raw_source(const AeronConfigFile* config, const char* key
 }
 
 static int host_config_controller_axes(const AeronConfigFile* config, int required,
+												  const char* base,
 									   XwaControllerOptions* controller, char* error, size_t error_size) {
 	static const char* const axis_names[XWA_CONTROLLER_LOGICAL_AXIS_COUNT] = { "yaw", "pitch", "throttle",
 																			   "roll" };
@@ -632,32 +633,32 @@ static int host_config_controller_axes(const AeronConfigFile* config, int requir
 	int i;
 
 	for (i = 0; i < XWA_CONTROLLER_LOGICAL_AXIS_COUNT; ++i) {
-		snprintf(key, sizeof(key), "input.controller.gamepad.axes.%s.source", axis_names[i]);
+		snprintf(key, sizeof(key), "%s.gamepad.axes.%s.source", base, axis_names[i]);
 		if (!host_config_gamepad_axis_source(config, key, required, &controller->gamepad.axes[i].source,
 											 error, error_size)) {
 			return 0;
 		}
-		snprintf(key, sizeof(key), "input.controller.gamepad.axes.%s.invert", axis_names[i]);
+		snprintf(key, sizeof(key), "%s.gamepad.axes.%s.invert", base, axis_names[i]);
 		if (!host_config_input_bool(config, key, required, &controller->gamepad.axes[i].invert, error,
 									error_size)) {
 			return 0;
 		}
-		snprintf(key, sizeof(key), "input.controller.gamepad.axes.%s.deadzone", axis_names[i]);
+		snprintf(key, sizeof(key), "%s.gamepad.axes.%s.deadzone", base, axis_names[i]);
 		if (!host_config_input_float(config, key, required, 0.0, 1.0, &controller->gamepad.axes[i].deadzone,
 									 error, error_size)) {
 			return 0;
 		}
-		snprintf(key, sizeof(key), "input.controller.joystick.axes.%s.source", axis_names[i]);
+		snprintf(key, sizeof(key), "%s.joystick.axes.%s.source", base, axis_names[i]);
 		if (!host_config_raw_source(config, key, required, AERON_CONTROLLER_AXIS_MAX,
 									&controller->joystick.axes[i].source, error, error_size)) {
 			return 0;
 		}
-		snprintf(key, sizeof(key), "input.controller.joystick.axes.%s.invert", axis_names[i]);
+		snprintf(key, sizeof(key), "%s.joystick.axes.%s.invert", base, axis_names[i]);
 		if (!host_config_input_bool(config, key, required, &controller->joystick.axes[i].invert, error,
 									error_size)) {
 			return 0;
 		}
-		snprintf(key, sizeof(key), "input.controller.joystick.axes.%s.deadzone", axis_names[i]);
+		snprintf(key, sizeof(key), "%s.joystick.axes.%s.deadzone", base, axis_names[i]);
 		if (!host_config_input_float(config, key, required, 0.0, 1.0, &controller->joystick.axes[i].deadzone,
 									 error, error_size)) {
 			return 0;
@@ -667,18 +668,19 @@ static int host_config_controller_axes(const AeronConfigFile* config, int requir
 }
 
 static int host_config_controller_buttons(const AeronConfigFile* config, int required,
+												  const char* base,
 										  XwaControllerOptions* controller, char* error, size_t error_size) {
 	char key[128];
 	int i;
 
 	for (i = 0; i < XWA_CONTROLLER_LOGICAL_BUTTON_COUNT; ++i) {
-		snprintf(key, sizeof(key), "input.controller.gamepad.buttons.%d", i + 1);
-		if (!host_config_controller_digital_binding(config, key, required, 1, &controller->gamepad.buttons[i],
+		snprintf(key, sizeof(key), "%s.gamepad.buttons.%d", base, i + 1);
+		if (!host_config_controller_digital_binding(config, key, required && i < 16, 1, &controller->gamepad.buttons[i],
 													error, error_size)) {
 			return 0;
 		}
-		snprintf(key, sizeof(key), "input.controller.joystick.buttons.%d", i + 1);
-		if (!host_config_controller_digital_binding(config, key, required, 0,
+		snprintf(key, sizeof(key), "%s.joystick.buttons.%d", base, i + 1);
+		if (!host_config_controller_digital_binding(config, key, required && i < 16, 0,
 													&controller->joystick.buttons[i], error, error_size)) {
 			return 0;
 		}
@@ -687,39 +689,36 @@ static int host_config_controller_buttons(const AeronConfigFile* config, int req
 }
 
 static int host_config_controller_pov(const AeronConfigFile* config, int required,
-									  XwaControllerOptions* controller, char* error, size_t error_size) {
-	const AeronConfigNode* node = AeronConfigFile_GetNode(config, "input.controller.gamepad.pov");
+									 const char* base, XwaControllerOptions* controller,
+									 char* error, size_t error_size) {
+	char key[128];
+	const AeronConfigNode* node;
+	int axis, btn;
 	const char* value;
-
+	snprintf(key, sizeof key, "%s.gamepad.pov", base);
+	node = AeronConfigFile_GetNode(config, key);
 	if (!node) {
-		if (!host_config_input_missing(required, "input.controller.gamepad.pov", error, error_size)) {
-			return 0;
-		}
+		if (!host_config_input_missing(required, key, error, error_size)) return 0;
 	} else {
 		value = AeronConfigNode_String(node, NULL);
-		if (value && strcmp(value, "dpad") == 0) {
-			controller->gamepad.pov_source = 1;
-		} else if (value && strcmp(value, "none") == 0) {
-			controller->gamepad.pov_source = 0;
-		} else {
-			return host_config_error(error, error_size, "invalid input setting '%s'",
-									 "input.controller.gamepad.pov");
-		}
+		if (value && strcmp(value, "dpad") == 0) controller->gamepad.pov_source = 1;
+		else if (value && strcmp(value, "none") == 0) controller->gamepad.pov_source = 0;
+		else return host_config_error(error, error_size, "invalid input setting '%s'", key);
 	}
-	return host_config_raw_source(config, "input.controller.joystick.pov_hat", required,
-								  AERON_CONTROLLER_HAT_MAX, &controller->joystick.pov_source, error,
-								  error_size);
+	snprintf(key, sizeof key, "%s.joystick.pov_hat", base);
+	return host_config_raw_source(config, key, required, AERON_CONTROLLER_HAT_MAX,
+									 &controller->joystick.pov_source, error, error_size);
 }
 
 static int host_config_controller_actions(const AeronConfigFile* config, int required,
-										  const char* profile_name, XwaControllerProfile* profile,
+										  const char* base, const char* profile_name, XwaControllerProfile* profile,
 										  char* error, size_t error_size) {
 	char key[96];
 	const AeronConfigNode* node;
 	size_t count;
 	int i;
 
-	snprintf(key, sizeof(key), "input.controller.%s.actions", profile_name);
+	snprintf(key, sizeof(key), "%s.%s.actions", base, profile_name);
 	node = AeronConfigFile_GetNode(config, key);
 	if (!node) {
 		return host_config_input_missing(required, key, error, error_size);
@@ -728,45 +727,48 @@ static int host_config_controller_actions(const AeronConfigFile* config, int req
 		return host_config_error(error, error_size, "invalid input setting '%s'", key);
 	}
 	count = AeronConfigNode_SequenceCount(node);
-	if (count != XWA_CONTROLLER_ACTION_COUNT) {
+	if (count != XWA_CONTROLLER_ACTION_COUNT && count != 20) {
 		return host_config_error(error, error_size, "invalid input setting '%s'", key);
 	}
-	for (i = 0; i < XWA_CONTROLLER_ACTION_COUNT; ++i) {
+	for (i = 0; i < (int)count; ++i) {
 		const AeronConfigNode* item = AeronConfigNode_SequenceGet(node, (size_t)i);
 		int64_t value = AeronConfigNode_Int(item, -1);
 		if (AeronConfigNode_Type(item) != AERON_CONFIG_INT || value < 0 || value > UINT16_MAX) {
 			return host_config_error(error, error_size, "invalid input setting '%s'", key);
 		}
-		profile->actions[i] = (uint16_t)value;
+		profile->actions[count == 20 && i >= 16
+						 ? XWA_CONTROLLER_LOGICAL_BUTTON_COUNT + i - 16 : i] = (uint16_t)value;
 	}
 	return 1;
 }
 
 static int host_config_controller_options(const AeronConfigFile* config, int required,
-										  XwaControllerOptions* controller, char* error, size_t error_size) {
-	if (!host_config_input_string(config, "input.controller.device.guid", required, controller->device.guid,
-								  sizeof(controller->device.guid), error, error_size) ||
-		!host_config_input_string(config, "input.controller.device.path", required, controller->device.path,
-								  sizeof(controller->device.path), error, error_size) ||
-		!host_config_input_int(config, "input.controller.device.ordinal", required, 0,
-							   XWA_CONTROLLER_DEVICE_ORDINAL_MAX, &controller->device.ordinal, error,
-							   error_size)) {
-		return 0;
-	}
-	return host_config_input_bool(config, "input.controller.roll_enabled", required,
-								  &controller->roll_enabled, error, error_size) &&
-		   host_config_input_bool(config, "input.controller.rumble_enabled", required,
-								  &controller->rumble_enabled, error, error_size) &&
-		   host_config_input_int(config, "input.controller.rumble_strength", required,
-								 XWA_CONTROLLER_RUMBLE_STRENGTH_MIN, XWA_CONTROLLER_RUMBLE_STRENGTH_MAX,
-								 &controller->rumble_strength, error, error_size) &&
-		   host_config_controller_axes(config, required, controller, error, error_size) &&
-		   host_config_controller_buttons(config, required, controller, error, error_size) &&
-		   host_config_controller_pov(config, required, controller, error, error_size) &&
-		   host_config_controller_actions(config, required, "gamepad", &controller->gamepad, error,
-										  error_size) &&
-		   host_config_controller_actions(config, required, "joystick", &controller->joystick, error,
-										  error_size);
+												 const char* base, XwaControllerOptions* controller,
+												 char* error, size_t error_size) {
+	char key[128];
+	snprintf(key, sizeof key, "%s.enabled", base);
+	if (!host_config_input_bool(config, key, 0, &controller->enabled, error, error_size)) return 0;
+	snprintf(key, sizeof key, "%s.device.guid", base);
+	if (!host_config_input_string(config, key, required, controller->device.guid,
+								  sizeof(controller->device.guid), error, error_size)) return 0;
+	snprintf(key, sizeof key, "%s.device.path", base);
+	if (!host_config_input_string(config, key, required, controller->device.path,
+								  sizeof(controller->device.path), error, error_size)) return 0;
+	snprintf(key, sizeof key, "%s.device.ordinal", base);
+	if (!host_config_input_int(config, key, required, 0, XWA_CONTROLLER_DEVICE_ORDINAL_MAX,
+							  &controller->device.ordinal, error, error_size)) return 0;
+	snprintf(key, sizeof key, "%s.roll_enabled", base);
+	if (!host_config_input_bool(config, key, required, &controller->roll_enabled, error, error_size)) return 0;
+	snprintf(key, sizeof key, "%s.rumble_enabled", base);
+	if (!host_config_input_bool(config, key, required, &controller->rumble_enabled, error, error_size)) return 0;
+	snprintf(key, sizeof key, "%s.rumble_strength", base);
+	return host_config_input_int(config, key, required, XWA_CONTROLLER_RUMBLE_STRENGTH_MIN,
+									 XWA_CONTROLLER_RUMBLE_STRENGTH_MAX, &controller->rumble_strength, error, error_size) &&
+		host_config_controller_axes(config, required, base, controller, error, error_size) &&
+		host_config_controller_buttons(config, required, base, controller, error, error_size) &&
+		host_config_controller_pov(config, required, base, controller, error, error_size) &&
+		host_config_controller_actions(config, required, base, "gamepad", &controller->gamepad, error, error_size) &&
+		host_config_controller_actions(config, required, base, "joystick", &controller->joystick, error, error_size);
 }
 
 static int host_config_head_tracking(const AeronConfigFile* config, int required,
@@ -810,10 +812,33 @@ static int host_config_input_options(const AeronConfigFile* config, int required
 							   error_size) ||
 		!host_config_input_bool(config, "input.mouse_invert_y", required, &out->mouse_invert_y, error,
 								error_size) ||
-		!host_config_controller_options(config, required, &out->controller, error, error_size) ||
+		!host_config_controller_options(config, required, "input.controller", &out->controller, error, error_size) ||
 		!host_config_head_tracking(config, required, &out->head_tracking, error, error_size)) {
 		return 0;
 	}
+
+	/* Preserve pre-upgrade configurations as Controller 1. Controller 2 starts
+	 * disabled and unbound, while optional user keys configure it independently. */
+	if (required) {
+		out->controller.enabled = 1;
+		out->controller2 = out->controller;
+		out->controller2.enabled = 0;
+		out->controller2.rumble_enabled = 0;
+		for (axis = 0; axis < XWA_CONTROLLER_LOGICAL_AXIS_COUNT; ++axis) {
+			out->controller2.gamepad.axes[axis].source = -1;
+			out->controller2.joystick.axes[axis].source = -1;
+		}
+		for (btn = 0; btn < XWA_CONTROLLER_LOGICAL_BUTTON_COUNT; ++btn) {
+			out->controller2.gamepad.buttons[btn].kind = AERON_CONTROLLER_DIGITAL_NONE;
+			out->controller2.joystick.buttons[btn].kind = AERON_CONTROLLER_DIGITAL_NONE;
+		}
+		memset(out->controller2.gamepad.actions, 0, sizeof out->controller2.gamepad.actions);
+		memset(out->controller2.joystick.actions, 0, sizeof out->controller2.joystick.actions);
+		out->controller2.gamepad.pov_source = 0;
+		out->controller2.joystick.pov_source = -1;
+	}
+	if (!host_config_controller_options(config, 0, "input.controller2", &out->controller2,
+										  error, error_size)) return 0;
 
 	node = AeronConfigFile_GetNode(config, "input.mouse_mode");
 	if (!node) {
