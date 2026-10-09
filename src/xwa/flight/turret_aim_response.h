@@ -19,15 +19,6 @@ static inline double XwaTurretAim_TimeScale(uint16_t elapsedTicks, int highRate)
     return highRate ? (double)elapsedTicks / 8.0 : 1.0;
 }
 
-/* Build #130 corrected the ventral seat's viewing direction with a fixed
- * horizontal half-turn. Relative to that outward-facing view, its old
- * pitch sign is reversed. Apply the correction to GUN AIM input only:
- * not to the TrackIR head pose, yaw, pilot, or the upper gunner seat.
- * seatIdx here is zero-based (upper = 0, lower = 1). */
-static inline double XwaTurretAim_PitchInputForSeat(int seatIdx, double pitchInput) {
-    return seatIdx == 1 ? -pitchInput : pitchInput;
-}
-
 static inline double XwaTurretAim_UpdateAccumulator(
     double previous, double smoothedInput, double timeScale) {
     double blend = XWA_TURRET_AIM_RESPONSE * timeScale;
