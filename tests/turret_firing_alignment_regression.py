@@ -14,6 +14,7 @@ camera = source("src/xwa/flight/flight_view.c")
 flight = source("src/xwa/flight/flight.c")
 laser = source("src/xwa/flight/object/laser.c")
 hud = source("src/xwa/flight/hud/hud.c")
+snapshot_hud = source("src/xwa_runtime/snapshot/snapshot_hud.c")
 trackir = source("src/xwa_runtime/input/trackir.c")
 renderer = source("src/xwa_remaster/flight.c")
 
@@ -50,6 +51,9 @@ check("const int16_t* bore = g_players[g_localPlayer].turretCamMat;" in hud,
       "reticle no longer uses native gunner firing direction")
 check("XwaTrackIR_GetTurretAimDirection" not in hud,
       "reticle depends on tracking DLL state rather than gun orientation")
+check("XwaTrackIR_GetTurretAimDirection" not in snapshot_hud and
+      "player->turretCamMat[axis]" in snapshot_hud,
+      "modern HUD snapshot must derive gun direction from native turretCamMat")
 check("XwaTrackIR_SetTurretAimDirection" not in camera and
       "s_turret_aim_world" not in trackir,
       "TrackIR still owns extra turret weapon-aim state")
