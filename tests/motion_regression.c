@@ -62,10 +62,34 @@ int main(void) {
                     "AI turning depends on frame granularity", rates[i], steps[j]);
         }
     }
+    /* Reproduce low-speed phantom descent: at 1-6 MGLT the position
+     * scalar is often 0 or 1, and a tiny negative Z direction used to
+     * yield -1 on every moving tick although +Z yielded zero. */
+    for (int speed = 0; speed <= 6; ++speed) {
+        for (uint32_t tick = 0; tick < 236; ++tick) {
+            const uint16_t distance = XwaObject_ScaledForwardMove(tick, 1u, (uint16_t)speed);
+            for (int axis = 1; axis <= 127; ++axis) {
+                const int up = XwaObject_ForwardAxisStep((int16_t)axis, distance);
+                const int down = XwaObject_ForwardAxisStep((int16_t)-axis, distance);
+                require(up == -down, "signed low-speed Z motion is asymmetric", speed, tick);
+                if ((uint32_t)axis * distance < 16384u)
+                    require(up == 0 && down == 0, "tiny signed Z generated spurious drift", speed, tick);
+            }
+            require(XwaObject_ForwardAxisStep(0, distance) == 0,
+                    "zero pitch generated vertical motion", speed, tick);
+        }
+    }
+    for (int direction = 1; direction <= 32767; direction += 997) {
+        for (uint16_t distance = 0; distance <= 512; ++distance) {
+            require(XwaObject_ForwardAxisStep((int16_t)direction, distance) ==
+                    -XwaObject_ForwardAxisStep((int16_t)-direction, distance),
+                    "motion signs must be equal and opposite", direction, distance);
+        }
+    }
     require(XwaObject_MinimumSignedPush(1, 0) == 1, "positive single-unit push reversed", 1, 0);
     require(XwaObject_MinimumSignedPush(-1, 0) == -1, "negative single-unit push reversed", 1, 0);
     require(XwaObject_MinimumSignedPush(100, 7) == 7, "push step not preserved", 100, 7);
     require(XwaObject_MinimumSignedPush(-100, -7) == -7, "negative push step not preserved", 100, 7);
-    puts("motion regression passed (fractional travel, AI turning, signed push)");
+    puts("motion regression passed (fractional travel, AI turning, unbiased low-speed motion, signed push)");
     return 0;
 }
