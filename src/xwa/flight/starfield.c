@@ -1011,6 +1011,12 @@ void Flight_InitInboundHyperspaceStreaks(void) {
 // FUNCTION: XWA 0x47D710
 /* Hyperspace flash follows the ship's direction, projected through
  * the active camera after TrackIR look is applied. */
+/* Legacy scratch outputs used by the same world-point projection as the
+ * HUD reticle. They are defined in the flight renderer globals. */
+extern int g_rotatedX;
+extern int g_rotatedY;
+extern int g_rotatedZ;
+
 static int FlightStarfield_ProjectShipFlash(FlightTexQuad* quad) {
 	const int objectIdx = g_players[g_localPlayer].objectIndex;
 	ObjectRecord* ship;
