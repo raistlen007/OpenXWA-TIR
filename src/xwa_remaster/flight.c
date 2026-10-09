@@ -3162,48 +3162,14 @@ static void fl_submit_hyperspace_cockpit(AeronCommandBuffer* cmd, XwaRemasterAss
 	if (!cockpit_mesh) {
 		return;
 	}
+	/* The hyperspace cockpit obeys the same rigid ship mounting as
+	 * normal flight. No lower-turret-only eye-space inversion: aim/TrackIR
+	 * must not rotate the fixed housing around the observer. */
 	float bw[9];
 	memcpy(bw, anchor_bw, sizeof bw);
-	float w[3], delta[3];
-	for (int a = 0; a < 3; a++) {
-		w[a] = -(snap->cockpit.hardpoint_world[a] + snap->cockpit.camera_pan[a] * 0.0625f);
-	}
-	fl_world_to_view(s.crows, w[0], w[1], w[2], delta);
-	if (snap->cockpit.seat == 2) {
-		float be[9];
-		for (int i = 0; i < 3; i++) {
-			for (int j = 0; j < 3; j++) {
-				be[i * 3 + j] = bw[i * 3 + 0] * s.crows[j * 3 + 0] + bw[i * 3 + 1] * s.crows[j * 3 + 1] +
-								bw[i * 3 + 2] * s.crows[j * 3 + 2];
-			}
-		}
-		float e[3];
-		for (int c = 0; c < 3; c++) {
-			e[c] = be[c] * delta[0] + be[3 + c] * delta[1] + be[6 + c] * delta[2];
-		}
-		e[1] = -e[1];
-		e[2] = -e[2];
-		for (int r = 0; r < 3; r++) {
-			delta[r] = be[r * 3 + 0] * e[0] + be[r * 3 + 1] * e[1] + be[r * 3 + 2] * e[2];
-			be[r * 3 + 1] = -be[r * 3 + 1];
-			be[r * 3 + 2] = -be[r * 3 + 2];
-		}
-		for (int i = 0; i < 3; i++) {
-			for (int j = 0; j < 3; j++) {
-				bw[i * 3 + j] = be[i * 3 + 0] * s.crows[0 * 3 + j] + be[i * 3 + 1] * s.crows[1 * 3 + j] +
-								be[i * 3 + 2] * s.crows[2 * 3 + j];
-			}
-		}
-	}
 	float pw[3];
-	for (int j = 0; j < 3; j++) {
-		/* Head motion changes the observer, not the hyperspace cockpit.
-		 * As in normal flight, keep the cockpit anchored at the untracked
-		 * eye origin while the rendered camera translates around it. */
-		pw[j] = s.camera_local[j] - snap->cockpit.trackir_head_offset[j] +
-				s.crows[0 * 3 + j] * delta[0] + s.crows[1 * 3 + j] * delta[1] +
-				s.crows[2 * 3 + j] * delta[2];
-	}
+	XwaTurretMount_CockpitOrigin(s.camera_local, snap->cockpit.trackir_head_offset,
+									snap->cockpit.hardpoint_world, snap->cockpit.camera_pan, pw);
 	float m[16];
 	fl_model_matrix(bw, pw, m);
 	AeronSceneMeshInstance inst;
