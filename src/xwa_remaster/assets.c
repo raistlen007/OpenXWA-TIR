@@ -33,6 +33,9 @@ typedef struct FontSlot {
 	int font_size;
 	uint8_t source;       /* AssetSource */
 	AeronFontAtlas atlas; /* loaded == 0 when the load failed */
+	/* Source remains alive until destruction because the GPU atlas filter
+	 * samples it in an asynchronous command buffer at load time. */
+	AeronTexture* unsmoothed_texture;
 } FontSlot;
 
 typedef struct FlightFontSlot {
@@ -98,6 +101,9 @@ struct XwaRemasterAssets {
 	AeronImageCache* flight_images;
 	FontSlot fonts[XWA_ASSETS_MAX_FONTS];
 	int font_count;
+	AeronComputePipeline* frontend_font_filter;
+	AeronSampler* frontend_font_sampler;
+	uint8_t frontend_font_filter_unavailable;
 	FileSlot files[XWA_ASSETS_MAX_FILES];
 	int file_count;
 	GroupSlot groups[XWA_ASSETS_MAX_GROUPS];
@@ -145,7 +151,13 @@ void XwaRemasterAssets_Destroy(XwaRemasterAssets* a) {
 		if (a->fonts[i].atlas.loaded) {
 			AeronFontAtlas_Release(&a->fonts[i].atlas);
 		}
+		if (a->fonts[i].unsmoothed_texture)
+			Aeron_DestroyTexture(a->fonts[i].unsmoothed_texture);
 	}
+	if (a->frontend_font_filter)
+		Aeron_DestroyComputePipeline(a->frontend_font_filter);
+	if (a->frontend_font_sampler)
+		Aeron_DestroySampler(a->frontend_font_sampler);
 	for (int i = 0; i < a->file_count; i++) {
 		Aeron_RuntimeAtlasRelease(&a->files[i].original_atlas);
 		if (a->files[i].kind == FILE_ATLAS) {
@@ -1055,6 +1067,81 @@ const AeronFontAtlas* XwaRemasterAssets_FlightFont(XwaRemasterAssets* a,
 
 uint32_t XwaRemasterAssets_Generation(const XwaRemasterAssets* a) { return a ? a->generation : 0; }
 
+
+/* The shader is deliberately scoped to the ORIGINAL frontend font atlases.
+ * 4x-nearest bitmap glyphs benefit from coverage reconstruction; hand-authored
+ * HD font textures have their own alpha AA and should not be blurred.
+ * Flight font atlases and HUD glyphs never enter this code path.
+ *
+ * One GPU pass at initial font load avoids a per-frame filter, prevents
+ * unrelated UI surfaces from becoming soft, and preserves the original
+ * font metrics, colors, and all frontend draw/surface events. */
+static void assets_smooth_original_frontend_font(XwaRemasterAssets* a, AeronCommandBuffer* cmd,
+											FontSlot* slot) {
+	if (!a || !cmd || !slot || !slot->atlas.loaded || !slot->atlas.texture ||
+		slot->atlas.atlas_w <= 0 || slot->atlas.atlas_h <= 0 ||
+		a->frontend_font_filter_unavailable)
+		return;
+	if (!a->frontend_font_filter) {
+		a->frontend_font_filter = Aeron_CreateComputePipeline(&(AeronComputePipelineDesc) {
+			.name = "frontend_font_smooth.comp",
+			.sampler_count = 1,
+			.readwrite_storage_texture_count = 1,
+			.uniform_buffer_count = 1,
+			.thread_count_x = 8, .thread_count_y = 8, .thread_count_z = 1,
+		});
+		a->frontend_font_sampler = Aeron_CreateSampler(&(AeronSamplerDesc) {
+			.min_filter = AERON_FILTER_NEAREST,
+			.mag_filter = AERON_FILTER_NEAREST,
+			.mip_filter = AERON_FILTER_NEAREST,
+			.address_u = AERON_ADDRESS_CLAMP_TO_EDGE,
+			.address_v = AERON_ADDRESS_CLAMP_TO_EDGE,
+			.address_w = AERON_ADDRESS_CLAMP_TO_EDGE,
+		});
+		if (!a->frontend_font_filter || !a->frontend_font_sampler) {
+			a->frontend_font_filter_unavailable = 1;
+			Aeron_LogWarn("xwa.remaster", "frontend glyph smoothing unavailable; using original atlas");
+			return; /* optional effect; never prevent menus from loading */
+		}
+	}
+	AeronTexture* filtered = Aeron_CreateTexture(&(AeronTextureDesc) {
+		.width = slot->atlas.atlas_w,
+		.height = slot->atlas.atlas_h,
+		.format = AERON_TEXTURE_FORMAT_RGBA8_UNORM,
+		.usage = AERON_TEXTURE_USAGE_SAMPLED | AERON_TEXTURE_USAGE_COMPUTE_STORAGE_WRITE,
+		.debug_name = "xwa.frontend.smoothed_font",
+	});
+	if (!filtered) {
+		Aeron_LogWarn("xwa.remaster", "frontend glyph smoothing output not supported; retaining original font");
+		return;
+	}
+	const AeronComputeTextureBinding output = { .texture = filtered };
+	AeronComputePass* pass = Aeron_BeginComputePass(&(AeronComputePassDesc) {
+		.command_buffer = cmd,
+		.write_textures = &output,
+		.write_texture_count = 1,
+		.debug_label = "Smooth frontend bitmap glyphs",
+	});
+	if (!pass) {
+		Aeron_DestroyTexture(filtered);
+		Aeron_LogWarn("xwa.remaster", "frontend glyph smoothing pass failed; retaining original font");
+		return;
+	}
+	const struct {
+		uint32_t width, height;
+		float strength, padding;
+	} params = { (uint32_t)slot->atlas.atlas_w, (uint32_t)slot->atlas.atlas_h, 1.0f, 0.0f };
+	Aeron_BindComputePipeline(pass, a->frontend_font_filter);
+	Aeron_BindComputeTextureSampler(pass, 0, slot->atlas.texture, a->frontend_font_sampler);
+	Aeron_BindComputeUniformData(pass, 0, &params, (uint32_t)sizeof params);
+	Aeron_DispatchCompute(pass, (params.width + 7u) / 8u, (params.height + 7u) / 8u, 1);
+	Aeron_EndComputePass(pass);
+	/* Old source atlas must survive until this command buffer has executed. */
+	slot->unsmoothed_texture = slot->atlas.texture;
+	slot->atlas.texture = filtered;
+	Aeron_LogInfo("xwa.remaster", "frontend font %d: GPU coverage smoothing enabled", slot->font_size);
+}
+
 static AssetLoadStatus assets_load_original_frontend_font(XwaRemasterAssets* a,
 														  AeronCommandBuffer* cmd, FontSlot* slot,
 														  int font_size) {
@@ -1114,6 +1201,8 @@ static AssetLoadStatus assets_load_frontend_font(XwaRemasterAssets* a, AeronComm
 		}
 		if (status == ASSET_LOAD_SUCCESS) {
 			slot->source = (uint8_t)source;
+			if (source == ASSET_SOURCE_ORIGINAL)
+				assets_smooth_original_frontend_font(a, cmd, slot);
 			Aeron_LogInfo("xwa.remaster", "frontend font %d: source=%s", font_size, assets_source_name(source));
 			*out = &slot->atlas;
 			return ASSET_LOAD_SUCCESS;
