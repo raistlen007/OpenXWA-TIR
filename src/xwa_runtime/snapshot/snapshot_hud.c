@@ -457,7 +457,7 @@ static void hud_capture_direct_state(XwaHudState* out) {
 	const int otanaLowerSeat =
 		player->currentSeatIdx == 2 && g_objectTable != NULL &&
 		player->objectIndex >= 0 && (uint32_t)player->objectIndex < g_objectTableSlotCount &&
-		g_objectTable[player->objectIndex].objectType == OBJ_CorellianTransport2;
+		g_objectTable[player->objectIndex].objectType == OBJ_FamilyTransport;
 	out->reticle.look_yaw = player->lookYawOffset;
 	out->reticle.look_pitch = player->lookPitchOffset;
 	/* The HD reticle must use the same effective look direction as the 3D
