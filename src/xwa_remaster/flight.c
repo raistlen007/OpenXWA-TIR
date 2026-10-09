@@ -1938,18 +1938,58 @@ static int fl_cockpit_model_matrix(const XwaCockpit* cockpit, const XwaFlightObj
 	float basis[9];
 	fl_object_world(cur, basis);
 
-	/* Original XWA uses the same fixed craft orientation for pilot,
-	 * dorsal and ventral cockpit meshes. Only the gun/launcher OPT nodes
-	 * receive aim rotations. An extra seat-2 eye-space 180-degree flip
-	 * (previously used here) inverted the Otana's lower cockpit and made
-	 * the WHOLE housing orbit when the turret or TrackIR moved.
-	 *
-	 * Recover ship-local origin directly from the tracked camera: remove
-	 * hardpoint, pan and head movement in WORLD space. Do not transform
-	 * these vectors through a moving eye/turret basis. */
 	float position[3];
-	XwaTurretMount_CockpitOrigin(camera_local, cockpit->trackir_head_offset,
+	if (cockpit->seat == 2) {
+		/* Baseline pre-TrackIR ventral turret mounting; do not change this
+		 * until the player verifies its original gun and chair orientation. */
+	float eye_offset[3];
+	for (int axis = 0; axis < 3; ++axis) {
+		eye_offset[axis] = -(cockpit->hardpoint_world[axis] + cockpit->camera_pan[axis] * 0.0625f);
+	}
+	float delta[3];
+	fl_world_to_view(camera_rows, eye_offset[0], eye_offset[1], eye_offset[2], delta);
+	if (cockpit->seat == 2) {
+		/* Classic gunner rear-turret flip about the hardpoint. The flip acts
+		 * in eye space, so move the anchor basis there and back. */
+		float eye_basis[9];
+		for (int row = 0; row < 3; ++row) {
+			for (int col = 0; col < 3; ++col) {
+				eye_basis[row * 3 + col] = basis[row * 3 + 0] * camera_rows[col * 3 + 0] +
+										   basis[row * 3 + 1] * camera_rows[col * 3 + 1] +
+										   basis[row * 3 + 2] * camera_rows[col * 3 + 2];
+			}
+		}
+		float flipped[3];
+		for (int col = 0; col < 3; ++col) {
+			flipped[col] =
+				eye_basis[col] * delta[0] + eye_basis[3 + col] * delta[1] + eye_basis[6 + col] * delta[2];
+		}
+		flipped[1] = -flipped[1];
+		flipped[2] = -flipped[2];
+		for (int row = 0; row < 3; ++row) {
+			delta[row] = eye_basis[row * 3 + 0] * flipped[0] + eye_basis[row * 3 + 1] * flipped[1] +
+						 eye_basis[row * 3 + 2] * flipped[2];
+			eye_basis[row * 3 + 1] = -eye_basis[row * 3 + 1];
+			eye_basis[row * 3 + 2] = -eye_basis[row * 3 + 2];
+		}
+		for (int row = 0; row < 3; ++row) {
+			for (int col = 0; col < 3; ++col) {
+				basis[row * 3 + col] = eye_basis[row * 3 + 0] * camera_rows[0 * 3 + col] +
+									   eye_basis[row * 3 + 1] * camera_rows[1 * 3 + col] +
+									   eye_basis[row * 3 + 2] * camera_rows[2 * 3 + col];
+			}
+		}
+	}
+
+	for (int axis = 0; axis < 3; ++axis) {
+		position[axis] = camera_local[axis] + camera_rows[0 * 3 + axis] * delta[0] +
+						 camera_rows[1 * 3 + axis] * delta[1] + camera_rows[2 * 3 + axis] * delta[2];
+	}
+	} else {
+		/* Preserve newer ship-fixed mounting for the pilot and upper turret. */
+		XwaTurretMount_CockpitOrigin(camera_local, cockpit->trackir_head_offset,
 									cockpit->hardpoint_world, cockpit->camera_pan, position);
+	}
 	fl_model_matrix(basis, position, out);
 	return 1;
 }
@@ -3162,14 +3202,50 @@ static void fl_submit_hyperspace_cockpit(AeronCommandBuffer* cmd, XwaRemasterAss
 	if (!cockpit_mesh) {
 		return;
 	}
-	/* The hyperspace cockpit obeys the same rigid ship mounting as
-	 * normal flight. No lower-turret-only eye-space inversion: aim/TrackIR
-	 * must not rotate the fixed housing around the observer. */
 	float bw[9];
 	memcpy(bw, anchor_bw, sizeof bw);
 	float pw[3];
-	XwaTurretMount_CockpitOrigin(s.camera_local, snap->cockpit.trackir_head_offset,
+	if (snap->cockpit.seat == 2) {
+		/* Restore the original ventral turret orientation in hyperspace too. */
+	float w[3], delta[3];
+	for (int a = 0; a < 3; a++) {
+		w[a] = -(snap->cockpit.hardpoint_world[a] + snap->cockpit.camera_pan[a] * 0.0625f);
+	}
+	fl_world_to_view(s.crows, w[0], w[1], w[2], delta);
+	if (snap->cockpit.seat == 2) {
+		float be[9];
+		for (int i = 0; i < 3; i++) {
+			for (int j = 0; j < 3; j++) {
+				be[i * 3 + j] = bw[i * 3 + 0] * s.crows[j * 3 + 0] + bw[i * 3 + 1] * s.crows[j * 3 + 1] +
+								bw[i * 3 + 2] * s.crows[j * 3 + 2];
+			}
+		}
+		float e[3];
+		for (int c = 0; c < 3; c++) {
+			e[c] = be[c] * delta[0] + be[3 + c] * delta[1] + be[6 + c] * delta[2];
+		}
+		e[1] = -e[1];
+		e[2] = -e[2];
+		for (int r = 0; r < 3; r++) {
+			delta[r] = be[r * 3 + 0] * e[0] + be[r * 3 + 1] * e[1] + be[r * 3 + 2] * e[2];
+			be[r * 3 + 1] = -be[r * 3 + 1];
+			be[r * 3 + 2] = -be[r * 3 + 2];
+		}
+		for (int i = 0; i < 3; i++) {
+			for (int j = 0; j < 3; j++) {
+				bw[i * 3 + j] = be[i * 3 + 0] * s.crows[0 * 3 + j] + be[i * 3 + 1] * s.crows[1 * 3 + j] +
+								be[i * 3 + 2] * s.crows[2 * 3 + j];
+			}
+		}
+	}
+	for (int j = 0; j < 3; j++) {
+		pw[j] = s.camera_local[j] + s.crows[0 * 3 + j] * delta[0] + s.crows[1 * 3 + j] * delta[1] +
+				s.crows[2 * 3 + j] * delta[2];
+	}
+	} else {
+		XwaTurretMount_CockpitOrigin(s.camera_local, snap->cockpit.trackir_head_offset,
 									snap->cockpit.hardpoint_world, snap->cockpit.camera_pan, pw);
+	}
 	float m[16];
 	fl_model_matrix(bw, pw, m);
 	AeronSceneMeshInstance inst;
