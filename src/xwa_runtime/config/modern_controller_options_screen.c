@@ -66,6 +66,8 @@ static struct {
 	uint32_t instance_id;
 	int16_t axes[AERON_CONTROLLER_AXIS_MAX];
 	uint8_t hats[AERON_CONTROLLER_HAT_MAX];
+	uint64_t raw_buttons;
+	uint32_t gamepad_buttons;
 	int ready;
 } g_controllerButtonScan;
 static char g_controllerBindingMessage[96];
@@ -874,11 +876,24 @@ static void ControllerScreen_SelectPressedBinding(const AeronControllerSnapshot*
 	if (!g_controllerButtonScan.ready || g_controllerButtonScan.instance_id != controller->instance_id) {
 		g_controllerButtonScan.ready = 1;
 		g_controllerButtonScan.instance_id = controller->instance_id;
-		memcpy(g_controllerButtonScan.axes, controller->raw_axes, sizeof(g_controllerButtonScan.axes));
+		for (int a = 0; a < ControllerScreen_AxisCount(controller) && a < AERON_CONTROLLER_AXIS_MAX; ++a)
+			g_controllerButtonScan.axes[a] = ControllerScreen_Axis(controller, a);
 		memcpy(g_controllerButtonScan.hats, controller->raw_hats, sizeof(g_controllerButtonScan.hats));
+		g_controllerButtonScan.raw_buttons = controller->raw_buttons;
+		g_controllerButtonScan.gamepad_buttons = controller->gamepad_buttons;
 		return;
 	}
 	source = ControllerScreen_FirstPressedButton(controller);
+	/* Compare held levels as a fallback if an SDL press pulse was missed. */
+	if (source < 0) {
+		const uint64_t rising = controller->kind == AERON_CONTROLLER_KIND_GAMEPAD
+			? (uint64_t)(controller->gamepad_buttons & ~g_controllerButtonScan.gamepad_buttons)
+			: controller->raw_buttons & ~g_controllerButtonScan.raw_buttons;
+		const int count = controller->kind == AERON_CONTROLLER_KIND_GAMEPAD
+			? AERON_GAMEPAD_BUTTON_COUNT : controller->button_count;
+		for (int b = 0; b < count; ++b)
+			if (rising & (UINT64_C(1) << b)) { source = b; break; }
+	}
 	direction = ControllerScreen_PressedPovDirection(controller, profile);
 	if (controller->kind == AERON_CONTROLLER_KIND_JOYSTICK && profile->pov_source >= 0 &&
 		profile->pov_source < controller->hat_count &&
@@ -911,8 +926,11 @@ static void ControllerScreen_SelectPressedBinding(const AeronControllerSnapshot*
 			break;
 		}
 	}
-	memcpy(g_controllerButtonScan.axes, controller->raw_axes, sizeof(g_controllerButtonScan.axes));
+	for (int a = 0; a < ControllerScreen_AxisCount(controller) && a < AERON_CONTROLLER_AXIS_MAX; ++a)
+		g_controllerButtonScan.axes[a] = ControllerScreen_Axis(controller, a);
 	memcpy(g_controllerButtonScan.hats, controller->raw_hats, sizeof(g_controllerButtonScan.hats));
+	g_controllerButtonScan.raw_buttons = controller->raw_buttons;
+	g_controllerButtonScan.gamepad_buttons = controller->gamepad_buttons;
 }
 
 int XwaModernControllerButtonsScreen_Update(int menu_center_x, int* cursor_row) {
