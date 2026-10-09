@@ -1008,6 +1008,26 @@ void Flight_InitInboundHyperspaceStreaks(void) {
 }
 
 // FUNCTION: XWA 0x47D710
+/* Hyperspace flash follows the ship's direction, projected through
+ * the active camera after TrackIR look is applied. */
+static int FlightStarfield_ProjectShipFlash(FlightTexQuad* quad) {
+	const int objectIdx = g_players[g_localPlayer].objectIndex;
+	const MobileObject* ship;
+	int viewX, viewY, viewZ;
+
+	if ((uint16_t)objectIdx == 0xffffu || !g_objectTable[objectIdx].mobj) return 1;
+	ship = g_objectTable[objectIdx].mobj;
+	viewX = TRANSFM2_CamMatDotRow0(ship->cachedFwdX, ship->cachedFwdY, ship->cachedFwdZ);
+	viewY = TRANSFM2_CamMatDotRow1(ship->cachedFwdX, ship->cachedFwdY, ship->cachedFwdZ);
+	viewZ = TRANSFM2_CamMatDotRow2(ship->cachedFwdX, ship->cachedFwdY, ship->cachedFwdZ);
+	/* A flash behind the observer must not jump to screen center. */
+	if (viewZ <= 1024) return 0;
+	quad->screenX = TRANSFM2_ProjectScreenX(viewX, viewZ);
+	/* Classic flash's center uses the inverse of the normal sprite Y offset. */
+	quad->screenY = TRANSFM2_ProjectScreenY(viewY, viewZ) - 2 * g_projOffsetY;
+	return 1;
+}
+
 void Flight_RenderHyperspaceTransitionEffects(void) {
 	ObjectTypeId tunnelModelType;
 	int modelType;
@@ -1122,8 +1142,10 @@ void Flight_RenderHyperspaceTransitionEffects(void) {
 				FeDiskIo_SelectTextureFrame(OBJ_LightingEffectTextureGroup1000, 2u, 256);
 				quad.screenSize = (uint16_t)(32 * g_flightVpWidth);
 
-				RenderQuad_DrawModelTexture(OBJ_LightingEffectTextureGroup1000, &quad,
-											(int)(((uint32_t)(uint16_t)alpha << 24) + 0x00ffffffu));
+				if (FlightStarfield_ProjectShipFlash(&quad)) {
+					RenderQuad_DrawModelTexture(OBJ_LightingEffectTextureGroup1000, &quad,
+												(int)(((uint32_t)(uint16_t)alpha << 24) + 0x00ffffffu));
+				}
 			}
 		} else if (phase == PLAYER_HYPERSPACE_INBOUND) {
 			uint32_t phaseTicks;
@@ -1167,8 +1189,10 @@ void Flight_RenderHyperspaceTransitionEffects(void) {
 				FeDiskIo_SelectTextureFrame(OBJ_LightingEffectTextureGroup1000, 2u, 256);
 				quad.screenSize = (uint16_t)(32 * g_flightVpWidth);
 
-				RenderQuad_DrawModelTexture(OBJ_LightingEffectTextureGroup1000, &quad,
-											(int)(((uint32_t)(uint16_t)alpha << 24) + 0x00ffffffu));
+				if (FlightStarfield_ProjectShipFlash(&quad)) {
+					RenderQuad_DrawModelTexture(OBJ_LightingEffectTextureGroup1000, &quad,
+												(int)(((uint32_t)(uint16_t)alpha << 24) + 0x00ffffffu));
+				}
 			}
 			g_unusedHyperspaceTransitionYOffsetNeg = -transitionYOffset;
 		}
