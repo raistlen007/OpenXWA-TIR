@@ -28,6 +28,17 @@ static double aim_for_ticks(int frameTicks, int totalTicks, double input,
 
 int main(void) {
     double previous = 0.0;
+    /* The lower turret's corrected outward view needs the opposite gun
+     * pitch input; the upper turret and yaw remain unchanged. The same
+     * shared gunner path receives both mouse and joystick commands. */
+    require(XwaTurretAim_PitchInputForSeat(0, 200.0) == 200.0,
+            "upper turret pitch must remain unchanged");
+    require(XwaTurretAim_PitchInputForSeat(1, 200.0) == -200.0,
+            "lower turret positive pitch must reverse");
+    require(XwaTurretAim_PitchInputForSeat(1, -200.0) == 200.0,
+            "lower turret negative pitch must reverse");
+    require(XwaTurretAim_PitchInputForSeat(1, 0.0) == 0.0,
+            "lower turret pitch at rest must remain centered");
     require(XwaTurretAim_UpdateAccumulator(0.0, 100.0, 1.0) == 150.0,
             "new gunner gains must respond promptly to the first full-rate step");
     for (int tick = 1; tick <= 120; ++tick) {
