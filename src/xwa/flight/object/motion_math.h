@@ -28,6 +28,19 @@ static inline uint16_t XwaObject_ScaledForwardMove(uint32_t gameTimeTicks,
     return XwaObject_ScaledTickRate(gameTimeTicks, elapsedTicks, unitsPerSecond);
 }
 
+/* The recovered Q15 multiply uses an arithmetic right shift. That
+ * rounds every small NEGATIVE component to -1, while its corresponding
+ * positive component rounds to zero. At low speeds a nearly horizontal
+ * ship therefore drifts continuously toward negative world axes (notably
+ * down in Z) even with zero pitch. Forward MOTION needs unbiased rounding.
+ * Keep the historical Q15 helper elsewhere (geometry/flight math). */
+static inline int XwaObject_ForwardAxisStep(int16_t directionQ15, uint16_t distance) {
+    const int64_t product = (int64_t)directionQ15 * distance;
+    const uint64_t magnitude = product < 0 ? (uint64_t)(-product) : (uint64_t)product;
+    const int step = (int)((magnitude + 16384u) >> 15);
+    return product < 0 ? -step : step;
+}
+
 /* The fallback for a sub-tick push must preserve the residual's sign,
  * not the rounded (possibly zero) half-magnitude clamp's sign. */
 static inline int XwaObject_MinimumSignedPush(int residual, int scaledStep) {
