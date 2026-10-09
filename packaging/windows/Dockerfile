@@ -1,7 +1,7 @@
 # Microsoft's Linux DXC release binaries are available for x86-64 only.
 ARG XWA_BUILD_PLATFORM=linux/amd64
 
-FROM --platform=${XWA_BUILD_PLATFORM} debian:bookworm-slim AS build-base
+FROM --platform=${XWA_BUILD_PLATFORM} public.ecr.aws/docker/library/debian:bookworm-slim AS build-base
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
         binutils-mingw-w64-x86-64 \

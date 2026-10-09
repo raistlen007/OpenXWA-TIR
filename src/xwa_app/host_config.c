@@ -627,8 +627,9 @@ static int host_config_raw_source(const AeronConfigFile* config, const char* key
 static int host_config_controller_axes(const AeronConfigFile* config, int required,
 												  const char* base,
 									   XwaControllerOptions* controller, char* error, size_t error_size) {
-	static const char* const axis_names[XWA_CONTROLLER_LOGICAL_AXIS_COUNT] = { "yaw", "pitch", "throttle",
-																			   "roll" };
+	static const char* const axis_names[XWA_CONTROLLER_LOGICAL_AXIS_COUNT] = {
+		"yaw", "pitch", "throttle", "roll", "hyperdrive"
+	};
 	char key[128];
 	int i;
 
@@ -881,6 +882,7 @@ static int host_config_validate_input_maps(const AeronConfigFile* config, char* 
 		"input.controller.gamepad.axes.pitch",
 		"input.controller.gamepad.axes.throttle",
 		"input.controller.gamepad.axes.roll",
+		"input.controller.gamepad.axes.hyperdrive",
 		"input.controller.gamepad.buttons",
 		"input.controller.joystick",
 		"input.controller.joystick.axes",
@@ -888,6 +890,7 @@ static int host_config_validate_input_maps(const AeronConfigFile* config, char* 
 		"input.controller.joystick.axes.pitch",
 		"input.controller.joystick.axes.throttle",
 		"input.controller.joystick.axes.roll",
+		"input.controller.joystick.axes.hyperdrive",
 		"input.controller.joystick.buttons",
 		"input.controller2",
 		"input.controller2.device",
@@ -897,6 +900,7 @@ static int host_config_validate_input_maps(const AeronConfigFile* config, char* 
 		"input.controller2.gamepad.axes.pitch",
 		"input.controller2.gamepad.axes.throttle",
 		"input.controller2.gamepad.axes.roll",
+		"input.controller2.gamepad.axes.hyperdrive",
 		"input.controller2.gamepad.buttons",
 		"input.controller2.joystick",
 		"input.controller2.joystick.axes",
@@ -904,6 +908,7 @@ static int host_config_validate_input_maps(const AeronConfigFile* config, char* 
 		"input.controller2.joystick.axes.pitch",
 		"input.controller2.joystick.axes.throttle",
 		"input.controller2.joystick.axes.roll",
+		"input.controller2.joystick.axes.hyperdrive",
 		"input.controller2.joystick.buttons",
 	};
 	size_t i;
@@ -1194,8 +1199,9 @@ static int host_config_set_controller_actions(AeronConfigFile* document, const c
 static int host_config_set_controller_profile(AeronConfigFile* document, const char* base, const char* profile_name,
 											  const XwaControllerProfile* profile, int gamepad,
 											  AeronConfigError* error) {
-	static const char* const axis_names[XWA_CONTROLLER_LOGICAL_AXIS_COUNT] = { "yaw", "pitch", "throttle",
-																			   "roll" };
+	static const char* const axis_names[XWA_CONTROLLER_LOGICAL_AXIS_COUNT] = {
+		"yaw", "pitch", "throttle", "roll", "hyperdrive"
+	};
 	char path[96];
 	int i;
 

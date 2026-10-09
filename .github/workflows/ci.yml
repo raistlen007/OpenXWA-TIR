@@ -78,6 +78,12 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Verify Hyperdrive lever thresholds and one-shot semantics
+        run: |
+          cc -std=c99 -Wall -Wextra -Werror -Isrc \
+            tests/hyperdrive_axis_regression.c -o /tmp/xwa-hyperdrive-test
+          /tmp/xwa-hyperdrive-test
+
       - name: Verify orientation math regressions
         run: |
           cc -std=c99 -Wall -Wextra -Werror -Isrc \
