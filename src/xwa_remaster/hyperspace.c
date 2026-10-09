@@ -491,6 +491,16 @@ int XwaRemasterHyperspace_Prepare(XwaRemasterHyperspace* h, AeronCommandBuffer* 
 	memcpy(h->view_proj, view_proj, sizeof h->view_proj);
 	const uint8_t phase = force_tunnel ? XWA_HYPERSPACE_TUNNEL : snap->hyperspace.phase;
 	const uint32_t ticks = force_tunnel ? 0u : snap->hyperspace.phase_elapsed_ticks;
+	/* All phases, including entry/exit flash, use the SAME eye-ray geometry
+	 * and ship axis as the hyperspace tunnel. Never substitute camera center
+	 * when the actual ship-forward axis is available. */
+	if (tunnel_view) {
+		h->tunnel_uniform.projection[0] = tunnel_view->tan_half_fov_x;
+		h->tunnel_uniform.projection[1] = tunnel_view->tan_half_fov_y;
+		h->tunnel_uniform.projection[2] = tunnel_view->proj_offset_x;
+		h->tunnel_uniform.projection[3] = tunnel_view->proj_offset_y;
+		memcpy(h->tunnel_uniform.tunnel_forward, tunnel_view->forward, 3 * sizeof(float));
+	}
 	if (phase == XWA_HYPERSPACE_TUNNEL) {
 		if (tunnel_view) {
 			h->tunnel_uniform.projection[0] = tunnel_view->tan_half_fov_x;
@@ -556,15 +566,13 @@ int XwaRemasterHyperspace_Prepare(XwaRemasterHyperspace* h, AeronCommandBuffer* 
 		flash_alpha = 0.0f;
 	if (flash_alpha > 1.0f)
 		flash_alpha = 1.0f;
-	if (flash_alpha > 0.0f && tunnel_view) {
-		if (tunnel_view->flash_center_valid < 0) {
-			/* The ship-forward flash is behind the observer. */
-			flash_alpha = 0.0f;
-		} else if (tunnel_view->flash_center_valid > 0) {
-			/* Same exact camera projection as the HUD reticle. */
-			h->tunnel_uniform.view[2] = tunnel_view->flash_center_uv[0];
-			h->tunnel_uniform.view[3] = tunnel_view->flash_center_uv[1];
-		}
+	if (flash_alpha > 0.0f &&
+		(!tunnel_view || tunnel_view->flash_center_valid < 0 ||
+		 !isfinite(h->tunnel_uniform.tunnel_forward[2]) ||
+		 h->tunnel_uniform.tunnel_forward[2] <= 0.0001f)) {
+		/* Hide the flare if ship-forward is unavailable or behind the eye.
+		 * The shader derives its location directly from the 3D ship axis. */
+		flash_alpha = 0.0f;
 	}
 	if (flash_alpha > 0.0f) {
 		h->tunnel_uniform.appearance[2] = flash_alpha;
