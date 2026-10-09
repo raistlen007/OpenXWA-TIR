@@ -243,6 +243,8 @@ static void ControllerMapping_MapSnapshot(const XwaControllerOptions* options,
 	profile = ControllerMapping_Profile(options, controller);
 	state->has_pov = ControllerMapping_HasPov(controller, profile);
 	for (logical = 0; logical < XWA_CONTROLLER_LOGICAL_AXIS_COUNT; ++logical) {
+		/* Per-device Roll Enabled must not block another device's roll axis. */
+		if (logical == XWA_CONTROLLER_AXIS_ROLL && !options->roll_enabled) continue;
 		const XwaControllerAxisBinding* binding = &profile->axes[logical];
 		const int16_t value = ControllerMapping_AxisValue(controller, binding->source);
 		state->source_axes[logical] = (int8_t)binding->source;
