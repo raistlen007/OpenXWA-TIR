@@ -76,13 +76,14 @@ check(renderer.count("XwaTurretMount_CockpitOrigin(") >= 2,
 check(renderer.count("flipped[1] = -flipped[1];") == 1 and
       renderer.count("e[1] = -e[1];") == 1,
       "unrelated ships' original lower gunner transforms were altered")
-check(camera.count("g_players[playerIdx].currentSeatIdx != 2") >= 2,
-      "TrackIR is still being injected into lower-seat camera views")
-check("g_players[g_localPlayer].currentSeatIdx != 2 && XwaTrackIR_CurrentPose" in hud,
-      "classic HUD still applies lower-seat TrackIR")
-check("player->currentSeatIdx != 2 && XwaTrackIR_CurrentPose" in snapshot_hud,
-      "modern HUD still applies lower-seat TrackIR")
-check("seatIdx == 1" in flight,
-      "lower turret no longer uses its original aim response")
+check(camera.count("OBJ_CorellianTransport2") >= 2 and
+      "currentSeatIdx == 2" in camera,
+      "TrackIR is not specifically excluded from Otana lower-seat camera views")
+check("g_objectTable[g_players[g_localPlayer].objectIndex].objectType == OBJ_CorellianTransport2" in hud,
+      "classic HUD does not distinguish Otana lower-seat TrackIR")
+check("!otanaLowerSeat && XwaTrackIR_CurrentPose" in snapshot_hud,
+      "modern HUD still applies Otana lower-seat TrackIR")
+check("seatIdx == 1 &&" in flight and "OBJ_CorellianTransport2" in flight,
+      "Otana lower turret no longer uses its original aim response")
 
-print("turret contracts pass: ventral gunner input/projectiles native; housing fixed 180-degrees in ship frame; TrackIR off on lower")
+print("turret contracts pass: Otana lower only; guns/projectiles native; ship-fixed shell; TrackIR off on Otana lower")
