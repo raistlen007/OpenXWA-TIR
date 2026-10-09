@@ -129,7 +129,30 @@ check("otanaLowerSeat" not in snapshot_hud and
 check(camera_body.index("g_players[playerIdx].turretCamMat[0] =") <
       camera_body.index("FVIEW_transformaxes(g_curMatR0_X", gun_basis),
       "TrackIR must never alter the gunner's pre-head weapon basis")
-check("seatIdx == 1 &&" in flight and "OBJ_FamilyTransport" in flight,
-      "Otana lower turret no longer uses its original aim response")
+# The gunner response must be shared by both turret seats on ALL crafts.
+# Sabra = CorellianTransport2 (YT-1300, type 58); Falcon =
+# MilleniumFalcon2 (59); Otana = FamilyTransport (YT-2000, 65).
+# Inspect just the native turret input block, not unrelated per-craft
+# flight configuration elsewhere in flight.c.
+turret_begin = flight.index("if (seatIdx >= 0 && !swappedControls")
+turret_end = flight.index("\nfinish:", turret_begin)
+turret_input = flight[turret_begin:turret_end]
+check("OBJ_CorellianTransport2 = 58" in model_types and
+      "OBJ_MilleniumFalcon2 = 59" in model_types and
+      "OBJ_FamilyTransport = 65" in model_types,
+      "turret identity mapping changed")
+check("OBJ_FamilyTransport" not in turret_input and
+      "OBJ_CorellianTransport2" not in turret_input and
+      "OBJ_MilleniumFalcon2" not in turret_input and
+      "if (seatIdx == 1" not in turret_input,
+      "turret sensitivity must not branch on Otana/Sabra/Falcon or upper/lower seat")
+check(turret_input.count("XwaTurretAim_TimeScale(") == 1 and
+      turret_input.count("XwaTurretAim_UpdateAccumulator(") == 2 and
+      "g_players[playerIdx].smoothedInputPitch, integrationScale" in turret_input and
+      "g_players[playerIdx].smoothedInputYaw, integrationScale" in turret_input,
+      "both aim axes must use identical enhanced response for all turrets")
+check("g_modelDefs[(uint16_t)modelIndex].turretAimLimitA[seatIdx]" in turret_input and
+      "g_modelDefs[(uint16_t)modelIndex].turretAimLimitB[seatIdx]" in turret_input,
+      "per-craft mechanical aim limits must remain unchanged")
 
 print("turret contracts pass: Otana classic pivot; both turret seats share TrackIR; gun/laser aim remains native")
