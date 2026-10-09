@@ -75,6 +75,12 @@ jobs:
             -lm -o /tmp/xwa-orientation-test
           /tmp/xwa-orientation-test
 
+      - name: Verify motion and docking precision regressions
+        run: |
+          cc -std=c99 -Wall -Wextra -Werror -Isrc \
+            tests/motion_regression.c -o /tmp/xwa-motion-test
+          /tmp/xwa-motion-test
+
       - name: Determine short commit hash
         id: sha
         run: echo "short=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
