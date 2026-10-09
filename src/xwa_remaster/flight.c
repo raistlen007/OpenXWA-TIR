@@ -1986,13 +1986,19 @@ static int fl_cockpit_model_matrix(const XwaCockpit* cockpit, const XwaFlightObj
 	}
 
 	} else {
-		/* Otana lower turret: rotate static ship-local facing, never the
-		 * moving camera. Pilot and upper turret pass through unchanged. */
-		if (cockpit->seat == 2 && anchor->object_type == OBJ_FamilyTransport) {
+		/* Otana lower turret: preserve the classic LOCAL-space 180 turn
+		 * around the native seat hardpoint. The gun/eye can move with aim;
+		 * the ship origin and observer orientation do not acquire that turn. */
+		const int otana_ventral = cockpit->seat == 2 && anchor->object_type == OBJ_FamilyTransport;
+		if (otana_ventral) {
 			XwaTurretMount_ApplyVentralFacing(basis);
 		}
 		XwaTurretMount_CockpitOrigin(camera_local, cockpit->trackir_head_offset,
 									cockpit->hardpoint_world, cockpit->camera_pan, position);
+		if (otana_ventral) {
+			XwaTurretMount_AnchorAtSeatPivot(basis, cockpit->hardpoint_world,
+											cockpit->hardpoint_local, position);
+		}
 	}
 	fl_model_matrix(basis, position, out);
 	return 1;
@@ -3249,12 +3255,17 @@ static void fl_submit_hyperspace_cockpit(AeronCommandBuffer* cmd, XwaRemasterAss
 	}
 
 	} else {
-		if (snap->cockpit.seat == 2 && player_f &&
-			player_f->object_type == OBJ_FamilyTransport) {
+		const int otana_ventral = snap->cockpit.seat == 2 && player_f &&
+			player_f->object_type == OBJ_FamilyTransport;
+		if (otana_ventral) {
 			XwaTurretMount_ApplyVentralFacing(bw);
 		}
 		XwaTurretMount_CockpitOrigin(s.camera_local, snap->cockpit.trackir_head_offset,
 										snap->cockpit.hardpoint_world, snap->cockpit.camera_pan, pw);
+		if (otana_ventral) {
+			XwaTurretMount_AnchorAtSeatPivot(bw, snap->cockpit.hardpoint_world,
+											snap->cockpit.hardpoint_local, pw);
+		}
 	}
 	float m[16];
 	fl_model_matrix(bw, pw, m);
