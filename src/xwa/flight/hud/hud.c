@@ -6876,7 +6876,7 @@ void Hud_DrawReticle3D(void) {
 	int16_t effectiveLookPitch = g_players[g_localPlayer].lookPitchOffset;
 	XwaTrackIRPose head;
 	if (!(g_players[g_localPlayer].currentSeatIdx == 2 &&
-		  g_objectTable[g_players[g_localPlayer].objectIndex].objectType == OBJ_CorellianTransport2) &&
+		  g_objectTable[g_players[g_localPlayer].objectIndex].objectType == OBJ_FamilyTransport) &&
 		XwaTrackIR_CurrentPose(&head)) {
 		effectiveLookYaw = (int16_t)(effectiveLookYaw + head.yaw_q16);
 		effectiveLookPitch = (int16_t)(effectiveLookPitch + head.pitch_q16);
@@ -6939,7 +6939,7 @@ void Hud_DrawReticle3D(void) {
 		 * the projection, never the aim or projectile direction. */
 		if (g_players[g_localPlayer].currentSeatIdx > 0 &&
 			!(g_players[g_localPlayer].currentSeatIdx == 2 &&
-			  g_objectTable[g_players[g_localPlayer].objectIndex].objectType == OBJ_CorellianTransport2)) {
+			  g_objectTable[g_players[g_localPlayer].objectIndex].objectType == OBJ_FamilyTransport)) {
 			const int playerObjIdx = g_players[g_localPlayer].objectIndex;
 			const int16_t* bore = g_players[g_localPlayer].turretCamMat;
 			const int32_t farDistance = 1000000;
