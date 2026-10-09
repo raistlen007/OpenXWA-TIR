@@ -1942,62 +1942,18 @@ static int fl_cockpit_model_matrix(const XwaCockpit* cockpit, const XwaFlightObj
 	float basis[9];
 	fl_object_world(cur, basis);
 
-	/* The cockpit seat is a SHIP-mounted reference frame, not the moving
-	 * TrackIR observer. Seat 2's 180-degree cockpit flip must therefore be
-	 * computed in the untracked turret mounting frame. Otherwise both the
-	 * mesh orientation and its translated origin depend on head yaw/pitch,
-	 * making the Otana lower turret appear to pivot from the wrong place. */
-	const float* mount_rows = XwaTurretMount_FixedFrame(
-		cockpit->seat, cockpit->turret_seat_base_valid,
-		cockpit->turret_seat_base_rows, camera_rows);
-
-	float eye_offset[3];
-	for (int axis = 0; axis < 3; ++axis) {
-		eye_offset[axis] = -(cockpit->hardpoint_world[axis] + cockpit->camera_pan[axis] * 0.0625f);
-	}
-	float delta[3];
-	fl_world_to_view(mount_rows, eye_offset[0], eye_offset[1], eye_offset[2], delta);
-	if (cockpit->seat == 2) {
-		/* Classic gunner rear-turret flip about the hardpoint. The flip acts
-		 * in eye space, so move the anchor basis there and back. */
-		float eye_basis[9];
-		for (int row = 0; row < 3; ++row) {
-			for (int col = 0; col < 3; ++col) {
-				eye_basis[row * 3 + col] = basis[row * 3 + 0] * mount_rows[col * 3 + 0] +
-										   basis[row * 3 + 1] * mount_rows[col * 3 + 1] +
-										   basis[row * 3 + 2] * mount_rows[col * 3 + 2];
-			}
-		}
-		float flipped[3];
-		for (int col = 0; col < 3; ++col) {
-			flipped[col] =
-				eye_basis[col] * delta[0] + eye_basis[3 + col] * delta[1] + eye_basis[6 + col] * delta[2];
-		}
-		flipped[1] = -flipped[1];
-		flipped[2] = -flipped[2];
-		for (int row = 0; row < 3; ++row) {
-			delta[row] = eye_basis[row * 3 + 0] * flipped[0] + eye_basis[row * 3 + 1] * flipped[1] +
-						 eye_basis[row * 3 + 2] * flipped[2];
-			eye_basis[row * 3 + 1] = -eye_basis[row * 3 + 1];
-			eye_basis[row * 3 + 2] = -eye_basis[row * 3 + 2];
-		}
-		for (int row = 0; row < 3; ++row) {
-			for (int col = 0; col < 3; ++col) {
-				basis[row * 3 + col] = eye_basis[row * 3 + 0] * mount_rows[0 * 3 + col] +
-									   eye_basis[row * 3 + 1] * mount_rows[1 * 3 + col] +
-									   eye_basis[row * 3 + 2] * mount_rows[2 * 3 + col];
-			}
-		}
-	}
-
+	/* Original XWA uses the same fixed craft orientation for pilot,
+	 * dorsal and ventral cockpit meshes. Only the gun/launcher OPT nodes
+	 * receive aim rotations. An extra seat-2 eye-space 180-degree flip
+	 * (previously used here) inverted the Otana's lower cockpit and made
+	 * the WHOLE housing orbit when the turret or TrackIR moved.
+	 *
+	 * Recover ship-local origin directly from the tracked camera: remove
+	 * hardpoint, pan and head movement in WORLD space. Do not transform
+	 * these vectors through a moving eye/turret basis. */
 	float position[3];
-	for (int axis = 0; axis < 3; ++axis) {
-		/* Camera motion is observer-only. The cockpit is anchored to the ship,
-		 * so remove the head displacement before constructing its world pose. */
-		position[axis] = camera_local[axis] - cockpit->trackir_head_offset[axis] +
-						 mount_rows[0 * 3 + axis] * delta[0] +
-						 mount_rows[1 * 3 + axis] * delta[1] + mount_rows[2 * 3 + axis] * delta[2];
-	}
+	XwaTurretMount_CockpitOrigin(camera_local, cockpit->trackir_head_offset,
+									cockpit->hardpoint_world, cockpit->camera_pan, position);
 	fl_model_matrix(basis, position, out);
 	return 1;
 }
