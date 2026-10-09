@@ -119,9 +119,14 @@ int main(void) {
                 /* Camera must sit at the ORIGINAL gunner hardpoint,
                  * regardless of lower-cockpit mesh rotation. */
                 model_to_world(ventral, world_translation, pivot, new_pivot_world);
-                for (int axis = 0; axis < 3; ++axis)
+                for (int axis = 0; axis < 3; ++axis) {
                     check(close_to(new_pivot_world[axis], native_seat_world[axis]),
                           "cockpit eye has moved off the gunner pivot");
+                    check(close_to(
+                            camera[axis] - new_pivot_world[axis],
+                            pan[axis] * 0.0625f + head_offset[axis]),
+                          "TrackIR translation moved the gun/cockpit instead of the observer");
+                }
 
                 for (unsigned v = 0; v < sizeof vertices / sizeof vertices[0]; ++v) {
                     const float *vertex = vertices[v];
