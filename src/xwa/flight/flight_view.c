@@ -17,6 +17,7 @@
 #include "aeron/log.h"
 #include "aeron/asset/opt_model.h"
 #include "xwa_runtime/input/trackir.h"
+#include "xwa/flight/turret_view_orientation.h"
 #include "xwa/flight/flight_debug.h"
 #include "xwa_runtime/hooks/orientation_hook.h"
 #include "xwa_runtime/snapshot/snapshot_hud.h"
@@ -3278,6 +3279,28 @@ int FVIEW_BuildCameraOrient(int16_t rollQ16, int16_t pitchQ16, int16_t yawQ16, i
 			g_players[playerIdx].turretCamMat[8] = turretMatR1Z;
 		}
 	}
+
+#ifdef XWA_MODERN
+	/* Seat 2 (ventral gunner) faces into the chair with the uncorrected
+	 * gun-mount view basis. Reverse the OBSERVER'S right and forward axes
+	 * about the turret's already-aimed UP axis, keeping the seat upright.
+	 * The gun aim/turretCamMat are already captured above and the cockpit
+	 * mesh and hardpoint are never modified by this observer-only turn.
+	 *
+	 * Apply before TrackIR extra pitch/yaw so head look remains relative to
+	 * the corrected seat, not to an inverted camera frame. */
+	if (playerIdx >= 0 &&
+		XwaTurretView_ReverseCameraFacing(g_players[playerIdx].currentSeatIdx,
+										  g_players[playerIdx].mapCameraState)) {
+		g_curMatR0_X = XwaTurretView_NegateQ15((int16_t)g_curMatR0_X);
+		g_curMatR0_Y = XwaTurretView_NegateQ15((int16_t)g_curMatR0_Y);
+		g_curMatR0_Z = XwaTurretView_NegateQ15((int16_t)g_curMatR0_Z);
+		g_curMatR2_X = XwaTurretView_NegateQ15((int16_t)g_curMatR2_X);
+		g_curMatR2_Y = XwaTurretView_NegateQ15((int16_t)g_curMatR2_Y);
+		g_curMatR2_Z = XwaTurretView_NegateQ15((int16_t)g_curMatR2_Z);
+		XwaTurretView_ReverseRowsDouble(camShadow);
+	}
+#endif
 
 	cameraAxisX = g_curMatR1_X;
 	cameraAxisY = g_curMatR1_Y;
