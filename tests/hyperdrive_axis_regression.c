@@ -1,6 +1,7 @@
 #include "xwa_runtime/input/hyperdrive_axis.h"
 
 #include <assert.h>
+#include <stddef.h>
 
 int main(void) {
 	int armed = 0;
