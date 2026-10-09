@@ -12,14 +12,20 @@
  * per-object state, survives save/replay, and is unchanged by render FPS.
  * Constant speed integrates to exactly the former per-second distance,
  * regardless of 1-, 4-, or 8-tick update granularity. */
+static inline uint16_t XwaObject_ScaledTickRate(uint32_t gameTimeTicks,
+                                                uint16_t elapsedTicks,
+                                                uint32_t ratePerSecond) {
+    const uint32_t phase = gameTimeTicks % 236u;
+    const uint64_t start = (uint64_t)phase * ratePerSecond;
+    const uint64_t end = ((uint64_t)phase + elapsedTicks) * ratePerSecond;
+    return (uint16_t)((end / 236u) - (start / 236u));
+}
+
 static inline uint16_t XwaObject_ScaledForwardMove(uint32_t gameTimeTicks,
                                                     uint16_t elapsedTicks,
                                                     uint16_t speed) {
     const uint32_t unitsPerSecond = (4660u * (uint32_t)speed + 128u) >> 8;
-    const uint32_t phase = gameTimeTicks % 236u;
-    const uint64_t start = (uint64_t)phase * unitsPerSecond;
-    const uint64_t end = ((uint64_t)phase + elapsedTicks) * unitsPerSecond;
-    return (uint16_t)((end / 236u) - (start / 236u));
+    return XwaObject_ScaledTickRate(gameTimeTicks, elapsedTicks, unitsPerSecond);
 }
 
 /* The fallback for a sub-tick push must preserve the residual's sign,
