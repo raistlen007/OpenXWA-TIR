@@ -1,6 +1,7 @@
 #include "xwa_runtime/input/trackir.h"
 #include "xwa_runtime/snapshot/snapshot_hud.h"
 
+#include "xwa/assets/object_type.h"
 #include "xwa/assets/flight_model.h"
 #include "xwa/assets/model_def.h"
 #include "xwa/flight/flight.h"
@@ -453,18 +454,22 @@ static void hud_capture_direct_state(XwaHudState* out) {
 	out->reticle.weapon_mode = player->selectedWeaponMode;
 	out->reticle.selected_warhead = player->selectedWarhead;
 	out->reticle.missile_lock_state = player->missileLockState;
+	const int otanaLowerSeat =
+		player->currentSeatIdx == 2 && g_objectTable != NULL &&
+		player->objectIndex >= 0 && (uint32_t)player->objectIndex < g_objectTableSlotCount &&
+		g_objectTable[player->objectIndex].objectType == OBJ_CorellianTransport2;
 	out->reticle.look_yaw = player->lookYawOffset;
 	out->reticle.look_pitch = player->lookPitchOffset;
 	/* The HD reticle must use the same effective look direction as the 3D
 	 * camera, without persisting hardware input in the simulation state. */
 	XwaTrackIRPose head;
-	if (player->currentSeatIdx != 2 && XwaTrackIR_CurrentPose(&head)) {
+	if (!otanaLowerSeat && XwaTrackIR_CurrentPose(&head)) {
 		out->reticle.look_yaw = (int16_t)(out->reticle.look_yaw + head.yaw_q16);
 		out->reticle.look_pitch = (int16_t)(out->reticle.look_pitch + head.pitch_q16);
 	}
 	out->reticle.seat = (uint8_t)player->currentSeatIdx;
 	out->reticle.turret_aim_valid = 0;
-	if (player->currentSeatIdx > 0 && player->currentSeatIdx != 2) {
+	if (player->currentSeatIdx > 0 && !otanaLowerSeat) {
 		/* The modern HUD consumes the same pre-head-look gun-bore matrix
 		 * from which laser_createprojectile launches player turret bolts.
 		 * TrackIR must never supply or change weapon aim; it only changes
