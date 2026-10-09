@@ -6874,7 +6874,7 @@ void Hud_DrawReticle3D(void) {
 	int16_t effectiveLookYaw = g_players[g_localPlayer].lookYawOffset;
 	int16_t effectiveLookPitch = g_players[g_localPlayer].lookPitchOffset;
 	XwaTrackIRPose head;
-	if (XwaTrackIR_CurrentPose(&head)) {
+	if (g_players[g_localPlayer].currentSeatIdx != 2 && XwaTrackIR_CurrentPose(&head)) {
 		effectiveLookYaw = (int16_t)(effectiveLookYaw + head.yaw_q16);
 		effectiveLookPitch = (int16_t)(effectiveLookPitch + head.pitch_q16);
 	}
@@ -6934,7 +6934,8 @@ void Hud_DrawReticle3D(void) {
 		 * Project that same world-space bore from the actual camera origin,
 		 * whether TrackIR is connected or not. Head movement changes only
 		 * the projection, never the aim or projectile direction. */
-		if (g_players[g_localPlayer].currentSeatIdx > 0) {
+		if (g_players[g_localPlayer].currentSeatIdx > 0 &&
+			g_players[g_localPlayer].currentSeatIdx != 2) {
 			const int playerObjIdx = g_players[g_localPlayer].objectIndex;
 			const int16_t* bore = g_players[g_localPlayer].turretCamMat;
 			const int32_t farDistance = 1000000;
