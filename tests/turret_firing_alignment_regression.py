@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Verify native turret gun/projectile transforms remain unchanged and
-that only the lower seat uses its original pre-TrackIR cockpit orientation.
+that only Otana lower gunner uses the TrackIR-disabled ship-fixed cockpit.
 No new lower-seat input or projectile reversal is permitted.
 Static contracts supplement (not replace) the in-game gun/laser test.
 """
@@ -17,6 +17,10 @@ hud = source("src/xwa/flight/hud/hud.c")
 snapshot_hud = source("src/xwa_runtime/snapshot/snapshot_hud.c")
 trackir = source("src/xwa_runtime/input/trackir.c")
 renderer = source("src/xwa_remaster/flight.c")
+mesh_renderer = source("src/xwa_remaster/ship.c")
+model_types = source("src/xwa/assets/object_type.h")
+native_mesh = source("src/xwa/render/render_scene_model.c")
+native_cockpit = source("src/xwa/render/render_scene_core.c")
 
 def check(ok, reason):
     if not ok:
@@ -59,6 +63,23 @@ check("XwaTrackIR_SetTurretAimDirection" not in camera and
       "TrackIR still owns extra turret weapon-aim state")
 check("XwaTurretMount_CockpitOrigin(" in renderer,
       "ship-fixed cockpit mount was lost")
+# Use the actual YT-2000 game object ID. These MUST be different ships.
+check("OBJ_FamilyTransport = 65" in model_types and
+      "OBJ_CorellianTransport2 = 58" in model_types,
+      "Otana was confused with the YT-1300 again")
+check("XwaTrackIR_ClearPose();" in camera[camera.index("void FlightView_UpdatePlayerCamera("):],
+      "Otana TrackIR bypass might retain the previous seat's head pose")
+# Native OPT guns rotate from the independent aim angles. Preserve
+# this animation independently of TrackIR and the render camera.
+check("g_curMeshType == MESH_RotaryBeamSystem" in native_mesh and
+      "g_curRotAngle = mesh->rotAngle;" in native_mesh and
+      "g_cockpitViewActive && g_players[g_localPlayer].currentSeatIdx" in native_cockpit,
+      "original OPT turret animation reference missing")
+check("XWA_SNAP_MESH_ROTARY_GUN_TURRET" in mesh_renderer and
+      "XWA_SNAP_MESH_ROTARY_BEAM" in mesh_renderer and
+      "c->aim_angle_a" in mesh_renderer and "c->aim_angle_b" in mesh_renderer and
+      "ship_mat3x4_mul(local_rotation, inherited, own)" in mesh_renderer,
+      "remastered physical turret animation has lost its gun/beam axes")
 # Otana = OBJ_FamilyTransport, object type 65 in assets/object_type.h.
 # The old view-space transform is present ONLY for other ships, guarded by
 # object-type discrimination, while Otana's lower shell uses ship-only data.
