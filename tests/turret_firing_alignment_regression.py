@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
-"""Verify native turret gun/projectile transforms remain unchanged and
-that only Otana lower gunner uses the TrackIR-disabled ship-fixed cockpit.
-No new lower-seat input or projectile reversal is permitted.
-Static contracts supplement (not replace) the in-game gun/laser test.
+"""Verify Otana's classic gun/laser basis and upper-turret-equivalent TrackIR.
+No new lower-seat weapon/input inversions. Geometry is tested by the
+independent C regression; this checks cross-module integration contracts.
 """
 from pathlib import Path
 
@@ -70,7 +69,7 @@ check("OBJ_FamilyTransport = 65" in model_types and
       "XWA_SNAP_TYPE_FAMILY_TRANSPORT 65" in source("src/xwa_runtime/snapshot/snapshot.h"),
       "Otana was confused with the YT-1300 again")
 check("XwaTrackIR_ClearPose();" in camera[camera.index("void FlightView_UpdatePlayerCamera("):],
-      "Otana TrackIR bypass might retain the previous seat's head pose")
+      "head pose from previous frame might leak into next gunner frame")
 # Native OPT guns rotate from the independent aim angles. Preserve
 # this animation independently of TrackIR and the render camera.
 check("g_curMeshType == MESH_RotaryBeamSystem" in native_mesh and
@@ -113,14 +112,24 @@ check("ship_origin_inout[axis] += hardpoint_world[axis] - rotated_pivot" in moun
 check(renderer.count("flipped[1] = -flipped[1];") == 1 and
       renderer.count("e[1] = -e[1];") == 1,
       "unrelated ships' original lower gunner transforms were altered")
-check(camera.count("OBJ_FamilyTransport") >= 2 and
-      "currentSeatIdx == 2" in camera,
-      "TrackIR is not specifically excluded from Otana lower-seat camera views")
-check("g_objectTable[g_players[g_localPlayer].objectIndex].objectType == OBJ_FamilyTransport" in hud,
-      "classic HUD does not distinguish Otana lower-seat TrackIR")
-check("!otanaLowerSeat && XwaTrackIR_CurrentPose" in snapshot_hud,
-      "modern HUD still applies Otana lower-seat TrackIR")
+# Both gunner seats must share the SAME observer-only TrackIR path.
+# The ventral model pivot is a renderer responsibility, not an input exception.
+check("OBJ_FamilyTransport" not in camera and
+      "g_players[playerIdx].currentSeatIdx > 0 &&" in camera and
+      "tracking = XwaTrackIR_Poll(&trackir);" in camera,
+      "Otana lower gunner is not using the upper-turret TrackIR camera path")
+check("OBJ_FamilyTransport" not in hud and
+      "if (XwaTrackIR_CurrentPose(&head))" in hud and
+      "if (g_players[g_localPlayer].currentSeatIdx > 0) {" in hud,
+      "classic HUD still excludes Otana lower-seat look or weapon reticle")
+check("otanaLowerSeat" not in snapshot_hud and
+      "if (XwaTrackIR_CurrentPose(&head))" in snapshot_hud and
+      "if (player->currentSeatIdx > 0) {" in snapshot_hud,
+      "modern HUD still excludes Otana lower-seat TrackIR or gun vector")
+check(camera_body.index("g_players[playerIdx].turretCamMat[0] =") <
+      camera_body.index("FVIEW_transformaxes(g_curMatR0_X", gun_basis),
+      "TrackIR must never alter the gunner's pre-head weapon basis")
 check("seatIdx == 1 &&" in flight and "OBJ_FamilyTransport" in flight,
       "Otana lower turret no longer uses its original aim response")
 
-print("turret contracts pass: Otana lower only; guns/projectiles native; ship-fixed shell; TrackIR off on Otana lower")
+print("turret contracts pass: Otana classic pivot; both turret seats share TrackIR; gun/laser aim remains native")
