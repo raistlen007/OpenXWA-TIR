@@ -26,10 +26,6 @@ void XwaTrackIR_GetCameraOffset(float world_offset[3]);
  * Both classic and HD reticles project this direction, not ship-forward. */
 void XwaTrackIR_SetTurretAimDirection(const float world_direction[3]);
 int XwaTrackIR_GetTurretAimDirection(float world_direction[3]);
-/* Ship/turret-mounted camera frame BEFORE head-look: the rear gunner
- * cockpit's 180-degree flip must not follow the observer's head. */
-void XwaTrackIR_SetTurretSeatFrame(const float camera_rows[9]);
-int XwaTrackIR_GetTurretSeatFrame(float camera_rows[9]);
 void XwaTrackIR_Shutdown(void);
 
 #endif
