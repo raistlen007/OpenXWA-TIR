@@ -65,7 +65,8 @@ check("XwaTurretMount_CockpitOrigin(" in renderer,
       "ship-fixed cockpit mount was lost")
 # Use the actual YT-2000 game object ID. These MUST be different ships.
 check("OBJ_FamilyTransport = 65" in model_types and
-      "OBJ_CorellianTransport2 = 58" in model_types,
+      "OBJ_CorellianTransport2 = 58" in model_types and
+      "XWA_SNAP_TYPE_FAMILY_TRANSPORT 65" in source("src/xwa_runtime/snapshot/snapshot.h"),
       "Otana was confused with the YT-1300 again")
 check("XwaTrackIR_ClearPose();" in camera[camera.index("void FlightView_UpdatePlayerCamera("):],
       "Otana TrackIR bypass might retain the previous seat's head pose")
@@ -75,6 +76,9 @@ check("g_curMeshType == MESH_RotaryBeamSystem" in native_mesh and
       "g_curRotAngle = mesh->rotAngle;" in native_mesh and
       "g_cockpitViewActive && g_players[g_localPlayer].currentSeatIdx" in native_cockpit,
       "original OPT turret animation reference missing")
+check("Otana lower turret lacks required rotary metadata" in mesh_renderer and
+      "anchor->object_type == XWA_SNAP_TYPE_FAMILY_TRANSPORT" in mesh_renderer,
+      "missing Otana lower turret renderer-articulation diagnostic")
 check("XWA_SNAP_MESH_ROTARY_GUN_TURRET" in mesh_renderer and
       "XWA_SNAP_MESH_ROTARY_BEAM" in mesh_renderer and
       "c->aim_angle_a" in mesh_renderer and "c->aim_angle_b" in mesh_renderer and
