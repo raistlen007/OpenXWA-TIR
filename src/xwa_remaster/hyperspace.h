@@ -20,9 +20,7 @@ typedef struct XwaRemasterHyperspaceTunnelView {
 	float tan_half_fov_y;
 	float proj_offset_x;
 	float proj_offset_y;
-	/* Use the exact HUD/flight camera projector for transition effects.
-	 * 0 = no player (preview fallback), 1 = projected, -1 = behind eye. */
-	float flash_center_uv[2];
+	/* 1 if ship-forward is visible; -1 when behind or unavailable. */
 	int flash_center_valid;
 } XwaRemasterHyperspaceTunnelView;
 
