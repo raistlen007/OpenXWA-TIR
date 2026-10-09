@@ -295,6 +295,7 @@ typedef struct XwaDirLight {
 /* Object-type values the drivers dispatch on (mirrors ObjectTypeId). */
 #define XWA_SNAP_TYPE_BWING 4               /* OBJ_BWing (model-wide bridge compensation) */
 #define XWA_SNAP_TYPE_FALCON2 59            /* OBJ_MilleniumFalcon2 (DS hangar light gate) */
+#define XWA_SNAP_TYPE_FAMILY_TRANSPORT 65    /* OBJ_FamilyTransport (YT-2000 Otana) */
 #define XWA_SNAP_TYPE_SSD 140               /* OBJ_SuperStarDestroyer */
 #define XWA_SNAP_TYPE_DS_REACTOR 324        /* OBJ_DSReactorCylinder (point-light gate) */
 #define XWA_SNAP_TYPE_DEBRIS_CHUNK 222      /* OBJ_NoAsset_222 (hull piece; draws the SOURCE craft model) */
