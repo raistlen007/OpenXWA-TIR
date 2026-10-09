@@ -4,6 +4,7 @@
 #include "xwa/assets/model_texture.h"
 #include "xwa/assets/model_type.h"
 #include "xwa/assets/opt_model.h"
+#include "xwa/flight/ai/pai.h"
 #include "xwa/flight/flight.h"
 #include "xwa/flight/flight_display.h"
 #include "xwa/flight/mission/mission.h"
@@ -1012,20 +1013,27 @@ void Flight_InitInboundHyperspaceStreaks(void) {
  * the active camera after TrackIR look is applied. */
 static int FlightStarfield_ProjectShipFlash(FlightTexQuad* quad) {
 	const int objectIdx = g_players[g_localPlayer].objectIndex;
-	const MobileObject* ship;
+	const ObjectRecord* ship;
+	int worldX, worldY, worldZ;
 	int viewX, viewY, viewZ;
 
-	if ((uint16_t)objectIdx == 0xffffu || !g_objectTable[objectIdx].mobj) return 1;
-	ship = g_objectTable[objectIdx].mobj;
-	viewX = TRANSFM2_CamMatDotRow0(ship->cachedFwdX, ship->cachedFwdY, ship->cachedFwdZ);
-	viewY = TRANSFM2_CamMatDotRow1(ship->cachedFwdX, ship->cachedFwdY, ship->cachedFwdZ);
-	viewZ = TRANSFM2_CamMatDotRow2(ship->cachedFwdX, ship->cachedFwdY, ship->cachedFwdZ);
-	/* A flash behind the observer must not jump to screen center. */
+	if ((uint16_t)objectIdx == 0xffffu || !g_objectTable[objectIdx].mobj)
+		return 0;
+	ship = &g_objectTable[objectIdx];
+
+	/* Use exactly the same distant body-forward point and actual camera
+	 * origin as the classic HUD's forward reticle. A mere cached direction
+	 * lacks the camera/TrackIR translation component and can land noticeably
+	 * off the aiming axis. */
+	pai_RotateLocalVectorToWorldScratch(ship, 0, 0, 1000000);
+	worldX = ship->world_x + g_rotatedX - g_players[g_localPlayer].viewState.savedTargetX;
+	worldY = ship->world_y + g_rotatedY - g_players[g_localPlayer].viewState.savedTargetY;
+	worldZ = ship->world_z + g_rotatedZ - g_players[g_localPlayer].viewState.savedTargetZ;
+	viewX = TRANSFM2_CamMatDotRow0(worldX, worldY, worldZ);
+	viewY = TRANSFM2_CamMatDotRow1(worldX, worldY, worldZ);
+	viewZ = TRANSFM2_CamMatDotRow2(worldX, worldY, worldZ);
 	if (viewZ <= 1024) return 0;
 	quad->screenX = TRANSFM2_ProjectScreenX(viewX, viewZ);
-	/* The sprite coordinates are bottom-origin (RenderQuad_DrawRotatedSprite
-	 * flips them exactly once). Match the ordinary HUD's ship-forward
-	 * projection; subtracting the offset a second time displaced the flash. */
 	quad->screenY = TRANSFM2_ProjectScreenY(viewY, viewZ);
 	return 1;
 }
