@@ -27,8 +27,6 @@ int XwaControllerMapping_Rumble(uint16_t low_frequency_rumble, uint16_t high_fre
 								uint32_t duration_ms);
 int XwaControllerMapping_ConsumeSelectionChange(void);
 int XwaControllerMapping_GetState(XwaControllerLogicalState* state);
-/* One-shot lever input, armed near its lower stop and fired only on forward movement. */
-int XwaControllerMapping_ConsumeHyperdriveEngage(void);
 void XwaControllerMapping_CopySelectedActions(uint16_t actions[XWA_CONTROLLER_ACTION_COUNT]);
 
 /* Pure conversion entry point used by the runtime facade and unit tests. */
