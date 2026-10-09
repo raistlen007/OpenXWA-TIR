@@ -1218,11 +1218,6 @@ void FlightView_UpdatePlayerCamera(int playerIdx) {
 					/* Snapshot the turret barrel's aim orientation before head-look
 					 * rotations. This must NOT steer the guns or use ship-forward. */
 					XwaTrackIR_SetTurretAimDirection(&seatRows[6]);
-					/* The second turret's cockpit is flipped in its fixed seat frame.
-					 * Cache that frame BEFORE applying TrackIR head-look; using the
-					 * live observer view makes the lower turret mesh rotate around
-					 * the pilot's head instead of its actual mounting hardpoint. */
-					XwaTrackIR_SetTurretSeatFrame(seatRows);
 				}
 			}
 #endif
