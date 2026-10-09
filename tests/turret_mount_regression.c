@@ -51,6 +51,21 @@ static void model_to_world(const float basis[9],
 }
 
 int main(void) {
+    /* The native classic renderer flips every seat-2 cockpit at its pivot.
+     * Opt in the two confirmed craft only; Sabra and other models keep their
+     * existing implementation. In particular, never flip either upper seat. */
+    check(XwaTurretMount_UsesClassicPivot(2, OBJ_FamilyTransport),
+          "Otana lower turret is missing classic pivot");
+    check(XwaTurretMount_UsesClassicPivot(2, OBJ_MilleniumFalcon2),
+          "Falcon lower turret is missing classic pivot");
+    check(!XwaTurretMount_UsesClassicPivot(1, OBJ_FamilyTransport) &&
+          !XwaTurretMount_UsesClassicPivot(1, OBJ_MilleniumFalcon2) &&
+          !XwaTurretMount_UsesClassicPivot(0, OBJ_MilleniumFalcon2),
+          "upper turrets or pilot cockpit acquired a lower-seat inversion");
+    check(!XwaTurretMount_UsesClassicPivot(2, OBJ_CorellianTransport2) &&
+          !XwaTurretMount_UsesClassicPivot(2, OBJ_Outrider),
+          "unverified craft were altered by Falcon fix");
+
     const float ship_origin[3] = {10000.0f, -2500.0f, 810.0f};
     const float pan[3] = {64.0f, -16.0f, 32.0f};
     const float head_displacements[][3] = {
@@ -150,7 +165,7 @@ int main(void) {
             }
         }
     }
-    printf("PASS: classic/modern Otana ventral transform agrees at %d world coordinates; upper/pilot untouched\n",
+    printf("PASS: Otana + Falcon lower cockpit classic-pivot selection and %d world-coordinate parity comparisons; others untouched\n",
            comparisons);
     return 0;
 }
