@@ -1940,7 +1940,7 @@ static int fl_cockpit_model_matrix(const XwaCockpit* cockpit, const XwaFlightObj
 	fl_object_world(cur, basis);
 	float position[3];
 	if (cockpit->seat == 2 && anchor->object_type != OBJ_CorellianTransport2) {
-		/* Other ships retain the original seat-2 renderer unchanged. */
+		/* Preserve the pre-TrackIR lower-turret path on other ships. */
 	float eye_offset[3];
 	for (int axis = 0; axis < 3; ++axis) {
 		eye_offset[axis] = -(cockpit->hardpoint_world[axis] + cockpit->camera_pan[axis] * 0.0625f);
@@ -1984,16 +1984,10 @@ static int fl_cockpit_model_matrix(const XwaCockpit* cockpit, const XwaFlightObj
 		position[axis] = camera_local[axis] + camera_rows[0 * 3 + axis] * delta[0] +
 						 camera_rows[1 * 3 + axis] * delta[1] + camera_rows[2 * 3 + axis] * delta[2];
 	}
-	} else {
-		/* Preserve newer ship-fixed mounting for the pilot and upper turret. */
-		XwaTurretMount_CockpitOrigin(camera_local, cockpit->trackir_head_offset,
-									cockpit->hardpoint_world, cockpit->camera_pan, position);
-	}
 
 	} else {
-		/* Only the Otana lower turret faces away from the seat's upper
-		 * frame. Mount the static half-turn on the SHIP, never the aiming
-		 * camera, so its fixed shell doesn't move laterally with the guns. */
+		/* Otana lower turret: rotate static ship-local facing, never the
+		 * moving camera. Pilot and upper turret pass through unchanged. */
 		if (cockpit->seat == 2 && anchor->object_type == OBJ_CorellianTransport2) {
 			XwaTurretMount_ApplyVentralFacing(basis);
 		}
@@ -3217,7 +3211,7 @@ static void fl_submit_hyperspace_cockpit(AeronCommandBuffer* cmd, XwaRemasterAss
 	float pw[3];
 	if (snap->cockpit.seat == 2 &&
 		(!player_f || player_f->object_type != OBJ_CorellianTransport2)) {
-		/* Preserve the previous lower-turret transform on other ships. */
+		/* All other ships' lower turrets retain their previous render path. */
 	float w[3], delta[3];
 	for (int a = 0; a < 3; a++) {
 		w[a] = -(snap->cockpit.hardpoint_world[a] + snap->cockpit.camera_pan[a] * 0.0625f);
@@ -3252,10 +3246,6 @@ static void fl_submit_hyperspace_cockpit(AeronCommandBuffer* cmd, XwaRemasterAss
 	for (int j = 0; j < 3; j++) {
 		pw[j] = s.camera_local[j] + s.crows[0 * 3 + j] * delta[0] + s.crows[1 * 3 + j] * delta[1] +
 				s.crows[2 * 3 + j] * delta[2];
-	}
-	} else {
-		XwaTurretMount_CockpitOrigin(s.camera_local, snap->cockpit.trackir_head_offset,
-									snap->cockpit.hardpoint_world, snap->cockpit.camera_pan, pw);
 	}
 
 	} else {
