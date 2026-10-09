@@ -272,6 +272,15 @@ int XwaModernInputOptions_Set(const XwaModernInputOptions* options) {
 	return 1;
 }
 
+int XwaModernInputOptions_RestoreControllerSlotDefaults(int slot) {
+	XwaModernInputOptions options;
+	if (!g_modernInputOptions.configured || slot < 0 || slot > 1) return 0;
+	options = g_modernInputOptions.options;
+	if (slot == 0) options.controller = g_modernInputOptions.defaults.controller;
+	else options.controller2 = g_modernInputOptions.defaults.controller2;
+	return XwaModernInputOptions_Set(&options);
+}
+
 int XwaModernInputOptions_RestoreControllerDefaults(void) {
 	XwaModernInputOptions options;
 
