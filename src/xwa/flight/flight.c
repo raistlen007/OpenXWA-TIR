@@ -33,6 +33,9 @@
 #include "xwa/flight/mission/mission.h"
 #include "xwa/flight/net_session.h"
 #include "xwa/flight/object/collision.h"
+#ifdef XWA_MODERN
+#include "xwa/flight/object/motion_math.h"
+#endif
 #include "xwa/flight/object/damage.h"
 #include "xwa/flight/object/laser.h"
 #include "xwa/flight/player/player.h"
@@ -4951,6 +4954,19 @@ static __inline uint16_t Flight_ScaledElapsedAxisStep(uint16_t rate) {
 	return (uint16_t)(product / 236);
 }
 
+#ifdef XWA_MODERN
+/* Scale per-second AI turning before the fractional 236Hz time step.
+ * Applying three Q16 factors after an already-rounded 1-tick delta
+ * repeatedly truncated slow docking alignment turns to zero. */
+static __inline uint16_t Flight_ModernAiTurnStep(uint16_t rate, uint16_t accel,
+											uint16_t limitStep, uint16_t motionScale) {
+	uint16_t perSecond = (uint16_t)MATH2_fraction(rate, accel);
+	perSecond = (uint16_t)MATH2_fraction(perSecond, limitStep);
+	perSecond = (uint16_t)MATH2_fraction(perSecond, motionScale);
+	return XwaObject_ScaledTickRate(g_gameTime, (uint16_t)g_elapsedTicks, perSecond);
+}
+#endif
+
 static __inline void Flight_DecelerateSpeedByStep(uint16_t objectIdx, uint32_t decelStep) {
 	uint32_t product;
 	uint32_t wholeDelta;
@@ -5010,10 +5026,17 @@ static __inline void Flight_UpdateAiCraftOrientation(uint16_t objectIdx, AiContr
 				g_curCraft->aiFlight.rollAccel = (int16_t)0xffffu;
 			}
 		}
+#ifdef XWA_MODERN
+		rollStep = Flight_ModernAiTurnStep((uint16_t)g_curCraft->aiFlight.rollRate,
+								 (uint16_t)g_curCraft->aiFlight.rollAccel,
+								 (uint16_t)g_curCraft->aiFlight.rollStep,
+								 (uint16_t)g_curCraft->aiFlight.motionScale);
+#else
 		rollStep = Flight_ScaledElapsedAxisStep((uint16_t)g_curCraft->aiFlight.rollRate);
 		rollStep = (uint16_t)MATH2_fraction(rollStep, (uint16_t)g_curCraft->aiFlight.rollAccel);
 		rollStep = (uint16_t)MATH2_fraction(rollStep, (uint16_t)g_curCraft->aiFlight.rollStep);
 		rollStep = (uint16_t)MATH2_fraction(rollStep, (uint16_t)g_curCraft->aiFlight.motionScale);
+#endif
 		rollStep = (uint16_t)(rollStep << 1);
 		if (g_curCraft->aiFlight.enterFlag != 3) {
 			if (rollDelta < 0x8000u) {
@@ -5046,10 +5069,17 @@ static __inline void Flight_UpdateAiCraftOrientation(uint16_t objectIdx, AiContr
 		uint16_t pitchStep;
 
 		pitchDelta = Flight_AngleMagnitude((uint16_t)(ai->targetZAngle - g_objectTable[objectIdx].pitch));
+#ifdef XWA_MODERN
+		pitchStep = Flight_ModernAiTurnStep((uint16_t)g_curCraft->aiFlight.pitchRate,
+								 (uint16_t)g_curCraft->aiFlight.pitchAccel,
+								 (uint16_t)g_curCraft->aiFlight.headingStep,
+								 (uint16_t)g_curCraft->aiFlight.motionScale);
+#else
 		pitchStep = Flight_ScaledElapsedAxisStep((uint16_t)g_curCraft->aiFlight.pitchRate);
 		pitchStep = (uint16_t)MATH2_fraction(pitchStep, (uint16_t)g_curCraft->aiFlight.pitchAccel);
 		pitchStep = (uint16_t)MATH2_fraction(pitchStep, (uint16_t)g_curCraft->aiFlight.headingStep);
 		pitchStep = (uint16_t)MATH2_fraction(pitchStep, (uint16_t)g_curCraft->aiFlight.motionScale);
+#endif
 		if (g_curCraft->aiFlight.headingState == 1) {
 			if (pitchDelta > pitchStep) {
 				g_objectTable[objectIdx].pitch = (uint16_t)(g_objectTable[objectIdx].pitch - pitchStep);
@@ -5123,10 +5153,17 @@ static __inline void Flight_UpdateAiCraftOrientation(uint16_t objectIdx, AiContr
 						g_curCraft->aiFlight.turnAccel = (int16_t)0xffffu;
 					}
 				}
+#ifdef XWA_MODERN
+				turnStep = Flight_ModernAiTurnStep((uint16_t)g_curCraft->aiFlight.turnRate,
+										 (uint16_t)g_curCraft->aiFlight.turnAccel,
+										 (uint16_t)g_curCraft->aiFlight.turnStep,
+										 (uint16_t)g_curCraft->aiFlight.motionScale);
+#else
 				turnStep = Flight_ScaledElapsedAxisStep((uint16_t)g_curCraft->aiFlight.turnRate);
 				turnStep = (uint16_t)MATH2_fraction(turnStep, (uint16_t)g_curCraft->aiFlight.turnAccel);
 				turnStep = (uint16_t)MATH2_fraction(turnStep, (uint16_t)g_curCraft->aiFlight.turnStep);
 				turnStep = (uint16_t)MATH2_fraction(turnStep, (uint16_t)g_curCraft->aiFlight.motionScale);
+#endif
 				oldYaw = g_objectTable[objectIdx].yaw;
 				actualYawStep = turnStep;
 				if (yawMagnitude < turnStep) {
