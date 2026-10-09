@@ -5325,7 +5325,8 @@ void Config_ApplyModernInputOptions(const XwaModernInputOptions* options) {
 	/* Axis inversion is applied at the Aeron-to-WinMM mapping boundary. */
 	g_gameConfig.flipRudder = 0;
 	g_gameConfig.flipY = 0;
-	g_gameConfig.ffEnabled = (uint8_t)options->controller.rumble_enabled;
+	g_gameConfig.ffEnabled = (uint8_t)((options->controller.enabled && options->controller.rumble_enabled) ||
+								(options->controller2.enabled && options->controller2.rumble_enabled));
 	g_gameConfig.ffStrength = (uint8_t)options->controller.rumble_strength;
 	g_gameConfig.ffCenter = 0;
 	XwaControllerMapping_CopySelectedActions(g_gameConfig.joyButtons);
