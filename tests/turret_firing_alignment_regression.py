@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Check the actual shared lower/upper turret camera, reticle, projectile
-and head-tracking source paths. This guards against independently reversing
-the observer or the lower gun input without rotating the actual laser.
+"""Verify native turret gun/projectile transforms remain unchanged and
+that only the lower seat uses its original pre-TrackIR cockpit orientation.
+No new lower-seat input or projectile reversal is permitted.
 Static contracts supplement (not replace) the in-game gun/laser test.
 """
 from pathlib import Path
@@ -59,7 +59,18 @@ check("XwaTrackIR_SetTurretAimDirection" not in camera and
       "TrackIR still owns extra turret weapon-aim state")
 check("XwaTurretMount_CockpitOrigin(" in renderer,
       "ship-fixed cockpit mount was lost")
-check("cockpit->seat == 2" not in renderer[renderer.index("static int fl_cockpit_model_matrix"):renderer.index("static const float fl_default_uvs")],
-      "unstable lower-seat-only cockpit mesh transform was restored")
+check("cockpit->seat == 2" in renderer[renderer.index("static int fl_cockpit_model_matrix"):renderer.index("static const float fl_default_uvs")] and
+      "flipped[1] = -flipped[1];" in renderer,
+      "pre-TrackIR ventral cockpit flip was not restored")
+check("snap->cockpit.seat == 2" in renderer and "e[1] = -e[1];" in renderer,
+      "pre-TrackIR ventral cockpit flip was not restored for hyperspace")
+check(camera.count("g_players[playerIdx].currentSeatIdx != 2") >= 2,
+      "TrackIR is still being injected into lower-seat camera views")
+check("g_players[g_localPlayer].currentSeatIdx != 2 && XwaTrackIR_CurrentPose" in hud,
+      "classic HUD still applies lower-seat TrackIR")
+check("player->currentSeatIdx != 2 && XwaTrackIR_CurrentPose" in snapshot_hud,
+      "modern HUD still applies lower-seat TrackIR")
+check("seatIdx == 1" in flight,
+      "lower turret no longer uses its original aim response")
 
-print("turret contracts pass: native aim = projectile bore = reticle; TrackIR moves observer only")
+print("turret contracts pass: original lower mount and inputs; native projectile unchanged; upper TrackIR retained")
