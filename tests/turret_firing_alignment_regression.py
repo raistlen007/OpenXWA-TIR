@@ -59,18 +59,23 @@ check("XwaTrackIR_SetTurretAimDirection" not in camera and
       "TrackIR still owns extra turret weapon-aim state")
 check("XwaTurretMount_CockpitOrigin(" in renderer,
       "ship-fixed cockpit mount was lost")
-check("if (cockpit->seat == 2)" in renderer and
+# Otana = OBJ_CorellianTransport2, object type 58 in assets/object_type.h.
+# The old view-space transform is present ONLY for other ships, guarded by
+# object-type discrimination, while Otana's lower shell uses ship-only data.
+check("OBJ_CorellianTransport2" in renderer and
+      "anchor->object_type != OBJ_CorellianTransport2" in renderer and
+      "anchor->object_type == OBJ_CorellianTransport2" in renderer and
       "XwaTurretMount_ApplyVentralFacing(basis);" in renderer,
-      "bottom turret fixed local-X orientation missing")
-check("if (snap->cockpit.seat == 2)" in renderer and
+      "Otana-only stable lower cockpit path missing")
+check("player_f->object_type != OBJ_CorellianTransport2" in renderer and
+      "player_f->object_type == OBJ_CorellianTransport2" in renderer and
       "XwaTurretMount_ApplyVentralFacing(bw);" in renderer,
-      "bottom turret fixed local-X orientation missing in hyperspace")
-check("flipped[1] = -flipped[1];" not in renderer and
-      "e[1] = -e[1];" not in renderer and
-      "eye_basis" not in renderer,
-      "camera-dependent original ventral 180-degree rotation reintroduced")
+      "Otana-only stable hyperspace cockpit path missing")
 check(renderer.count("XwaTurretMount_CockpitOrigin(") >= 2,
-      "cockpit mount not ship-fixed in both flight and hyperspace")
+      "Otana cockpit mount not ship-fixed in flight and hyperspace")
+check(renderer.count("flipped[1] = -flipped[1];") == 1 and
+      renderer.count("e[1] = -e[1];") == 1,
+      "unrelated ships' original lower gunner transforms were altered")
 check(camera.count("g_players[playerIdx].currentSeatIdx != 2") >= 2,
       "TrackIR is still being injected into lower-seat camera views")
 check("g_players[g_localPlayer].currentSeatIdx != 2 && XwaTrackIR_CurrentPose" in hud,
