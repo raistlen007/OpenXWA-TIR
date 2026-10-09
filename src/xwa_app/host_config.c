@@ -804,6 +804,7 @@ static int host_config_head_tracking(const AeronConfigFile* config, int required
 static int host_config_input_options(const AeronConfigFile* config, int required, XwaModernInputOptions* out,
 									 char* error, size_t error_size) {
 	const AeronConfigNode* node;
+	int axis, btn;
 
 	if (!host_config_input_bool(config, "input.mouse_flight", required, &out->mouse_flight_enabled, error,
 								error_size) ||
