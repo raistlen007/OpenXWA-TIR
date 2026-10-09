@@ -19,6 +19,7 @@
 #include "xwa_remaster/hud.h"
 #include "xwa_remaster/hyperspace.h"
 #include "xwa_remaster/ship.h"
+#include "xwa_remaster/turret_mount_frame.h"
 #include "xwa_remaster/sky_stars.h"
 #include "xwa_remaster/xwa_remaster.h"
 #include "xwa_runtime/runtime/presentation.h"
@@ -1946,9 +1947,9 @@ static int fl_cockpit_model_matrix(const XwaCockpit* cockpit, const XwaFlightObj
 	 * computed in the untracked turret mounting frame. Otherwise both the
 	 * mesh orientation and its translated origin depend on head yaw/pitch,
 	 * making the Otana lower turret appear to pivot from the wrong place. */
-	const float* mount_rows =
-		cockpit->seat == 2 && cockpit->turret_seat_base_valid
-			? cockpit->turret_seat_base_rows : camera_rows;
+	const float* mount_rows = XwaTurretMount_FixedFrame(
+		cockpit->seat, cockpit->turret_seat_base_valid,
+		cockpit->turret_seat_base_rows, camera_rows);
 
 	float eye_offset[3];
 	for (int axis = 0; axis < 3; ++axis) {
