@@ -84,18 +84,26 @@ check("XWA_SNAP_MESH_ROTARY_GUN_TURRET" in mesh_renderer and
       "c->aim_angle_a" in mesh_renderer and "c->aim_angle_b" in mesh_renderer and
       "ship_mat3x4_mul(local_rotation, inherited, own)" in mesh_renderer,
       "remastered physical turret animation has lost its gun/beam axes")
-# Otana = OBJ_FamilyTransport, object type 65 in assets/object_type.h.
-# The old view-space transform is present ONLY for other ships, guarded by
-# object-type discrimination, while Otana's lower shell uses ship-only data.
-check("OBJ_FamilyTransport" in renderer and
-      "anchor->object_type != OBJ_FamilyTransport" in renderer and
-      "anchor->object_type == OBJ_FamilyTransport" in renderer and
-      "XwaTurretMount_ApplyVentralFacing(basis);" in renderer,
-      "Otana-only stable lower cockpit path missing")
-check("player_f->object_type != OBJ_FamilyTransport" in renderer and
-      "player_f->object_type == OBJ_FamilyTransport" in renderer and
+# The classic seat-2 renderer uses the SAME 180-degree eye-pivot
+# inversion for Otana and Millennium Falcon. The modern path must select
+# it based on the native object type and NEVER on camera/TrackIR heading.
+# Sabra (58) is deliberately not opted in by this focused change.
+check("OBJ_FamilyTransport = 65" in model_types and
+      "OBJ_MilleniumFalcon2 = 59" in model_types and
+      "OBJ_CorellianTransport2 = 58" in model_types,
+      "native craft IDs have changed")
+check("object_type == OBJ_FamilyTransport ||" in mount and
+      "object_type == OBJ_MilleniumFalcon2" in mount and
+      "seat == 2" in mount,
+      "classic ventral pivot must select Falcon and Otana lower seats only")
+check("XwaTurretMount_UsesClassicPivot(cockpit->seat, anchor->object_type)" in renderer and
+      "XwaTurretMount_UsesClassicPivot(snap->cockpit.seat, player_f->object_type)" in renderer and
+      "XwaTurretMount_ApplyVentralFacing(basis);" in renderer and
       "XwaTurretMount_ApplyVentralFacing(bw);" in renderer,
-      "Otana-only stable hyperspace cockpit path missing")
+      "Falcon lower-seat pivot missing from flight or hyperspace")
+check("cockpit->seat == 2 && !XwaTurretMount_UsesClassicPivot(" in renderer and
+      "(!player_f || !XwaTurretMount_UsesClassicPivot(" in renderer,
+      "other craft must retain their existing classic-fallback rendering path")
 check(renderer.count("XwaTurretMount_CockpitOrigin(") >= 2,
       "Otana cockpit mount origin recovery missing in flight/hyperspace")
 check(renderer.count("XwaTurretMount_AnchorAtSeatPivot(") == 2 and
@@ -115,10 +123,12 @@ check(renderer.count("flipped[1] = -flipped[1];") == 1 and
 # Both gunner seats must share the SAME observer-only TrackIR path.
 # The ventral model pivot is a renderer responsibility, not an input exception.
 check("OBJ_FamilyTransport" not in camera and
+      "OBJ_MilleniumFalcon2" not in camera and
       "g_players[playerIdx].currentSeatIdx > 0 &&" in camera and
       "tracking = XwaTrackIR_Poll(&trackir);" in camera,
       "Otana lower gunner is not using the upper-turret TrackIR camera path")
 check("OBJ_FamilyTransport" not in hud and
+      "OBJ_MilleniumFalcon2" not in hud and
       "if (XwaTrackIR_CurrentPose(&head))" in hud and
       "if (g_players[g_localPlayer].currentSeatIdx > 0) {" in hud,
       "classic HUD still excludes Otana lower-seat look or weapon reticle")
