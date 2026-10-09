@@ -911,6 +911,12 @@ int Config_ControllerOptionsScreen(void) {
 			g_menuCursorRow = 4;
 			break;
 		case 2:
+			XwaModernControllerOptionsScreen_SelectSlot(0);
+			g_pendingMenuScreen = 20;
+			g_menuCursorRow = 0;
+			break;
+		case 4:
+			XwaModernControllerOptionsScreen_SelectSlot(1);
 			g_pendingMenuScreen = 20;
 			g_menuCursorRow = 0;
 			break;
@@ -5314,7 +5320,8 @@ void Config_ApplyModernInputOptions(const XwaModernInputOptions* options) {
 									   strcmp(previousDevice.guid, options->controller.device.guid) != 0 ||
 									   strcmp(previousDevice.path, options->controller.device.path) != 0 ||
 									   previousDevice.ordinal != options->controller.device.ordinal);
-	g_gameConfig.rudderEnabled = (uint8_t)options->controller.roll_enabled;
+	g_gameConfig.rudderEnabled = (uint8_t)((options->controller.enabled && options->controller.roll_enabled) ||
+										 (options->controller2.enabled && options->controller2.roll_enabled));
 	/* Axis inversion is applied at the Aeron-to-WinMM mapping boundary. */
 	g_gameConfig.flipRudder = 0;
 	g_gameConfig.flipY = 0;
