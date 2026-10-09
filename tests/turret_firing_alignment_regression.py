@@ -127,9 +127,11 @@ check("OBJ_FamilyTransport" not in camera and
       "g_players[playerIdx].currentSeatIdx > 0 &&" in camera and
       "tracking = XwaTrackIR_Poll(&trackir);" in camera,
       "Otana lower gunner is not using the upper-turret TrackIR camera path")
-check("OBJ_FamilyTransport" not in hud and
-      "OBJ_MilleniumFalcon2" not in hud and
-      "if (XwaTrackIR_CurrentPose(&head))" in hud and
+reticle_hud = hud[hud.index("int16_t effectiveLookYaw ="):
+                  hud.index("const int16_t* bore = g_players[g_localPlayer].turretCamMat;") + 100]
+check("OBJ_FamilyTransport" not in reticle_hud and
+      "OBJ_MilleniumFalcon2" not in reticle_hud and
+      "if (XwaTrackIR_CurrentPose(&head))" in reticle_hud and
       "if (g_players[g_localPlayer].currentSeatIdx > 0) {" in hud,
       "classic HUD still excludes Otana lower-seat look or weapon reticle")
 check("otanaLowerSeat" not in snapshot_hud and
