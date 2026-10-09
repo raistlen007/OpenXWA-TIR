@@ -1193,8 +1193,6 @@ void FlightView_UpdatePlayerCamera(int playerIdx) {
 				g_players[playerIdx].cockpitVisible &&
 				((g_players[playerIdx].currentSeatIdx == 0 && g_players[playerIdx].cockpitLookAvailable) ||
 				 (g_players[playerIdx].currentSeatIdx > 0 &&
-				  !(g_players[playerIdx].currentSeatIdx == 2 &&
-					g_objectTable[g_players[playerIdx].objectIndex].objectType == OBJ_FamilyTransport) &&
 				  g_players[playerIdx].cockpitToggleAvailable)) &&
 				cameraFocusObjIdx == (unsigned int)g_players[playerIdx].objectIndex) {
 				tracking = XwaTrackIR_Poll(&trackir);
@@ -1301,8 +1299,6 @@ void FlightView_UpdatePlayerCamera(int playerIdx) {
 	 * Apply 6DOF only after these modes have settled their base camera.
 	 * Never write the headset pose into the ship's control/aim state. */
 	if (playerIdx == g_localPlayer &&
-		!(g_players[playerIdx].currentSeatIdx == 2 &&
-		  g_objectTable[g_players[playerIdx].objectIndex].objectType == OBJ_FamilyTransport) &&
 		!g_players[playerIdx].mapCameraState && !g_filmRecording && !g_filmPlaybackMode &&
 		(g_players[playerIdx].hyperspacePhase != PLAYER_HYPERSPACE_PHASE_NONE ||
 		 (g_players[playerIdx].viewState.externalCameraActive &&
