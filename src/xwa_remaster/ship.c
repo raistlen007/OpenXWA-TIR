@@ -825,6 +825,39 @@ int XwaRemasterShip_BuildCockpitMeshTable(const AeronSceneMesh* mesh, const XwaC
 		out->markings_packed[mi >> 2][mi & 3] = 0.0f;
 		out->emissive_packed[mi >> 2][mi & 3] = 1.0f;
 	}
+	/* Diagnostic once per loaded Otana lower-turret OPT/GLB. The native
+	 * gunner camera follows craft->turretAim, but the HD gun meshes move
+	 * ONLY when rotary OPT metadata survives asset cooking. Distinguish
+	 * a missing animation source from an aim/input fault without guessing. */
+	if (c->seat == 2 && anchor->object_type == XWA_SNAP_TYPE_FAMILY_TRANSPORT) {
+		static const AeronSceneMesh* inspected_mesh;
+		if (mesh != inspected_mesh) {
+			unsigned gun = 0, launcher = 0, beam = 0;
+			unsigned missing = 0;
+			for (uint32_t mi = 0; mi < slots; ++mi) {
+				const AeronMeshRot* rot = &mesh->mesh_rot[mi];
+				if (rot->mesh_type == XWA_SNAP_MESH_ROTARY_GUN_TURRET) {
+					++gun;
+					if (!rot->has_rotation) ++missing;
+				} else if (rot->mesh_type == XWA_SNAP_MESH_ROTARY_LAUNCHER) {
+					++launcher;
+					if (!rot->has_rotation) ++missing;
+				} else if (rot->mesh_type == XWA_SNAP_MESH_ROTARY_BEAM) {
+					++beam;
+					if (!rot->has_rotation) ++missing;
+				}
+			}
+			Aeron_LogVerbose("xwa.turret",
+				"Otana ventral cockpit=%s rotary meshes: gun=%u launcher=%u beam=%u without-axis=%u",
+				c->model_name, gun, launcher, beam, missing);
+			if (beam == 0 || (gun == 0 && launcher == 0) || missing != 0) {
+				Aeron_LogWarn("xwa.turret",
+					"Otana lower turret lacks required rotary metadata: model=%s gun=%u launcher=%u beam=%u missing=%u",
+					c->model_name, gun, launcher, beam, missing);
+			}
+			inspected_mesh = mesh;
+		}
+	}
 	const float q16 = 2.0f * 3.14159265358979323846f / 65536.0f;
 	int any = has_bwing_compensation;
 	/* The classic node walk carries the beam rotation into subsequent
