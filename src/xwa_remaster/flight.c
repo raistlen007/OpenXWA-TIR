@@ -1939,8 +1939,8 @@ static int fl_cockpit_model_matrix(const XwaCockpit* cockpit, const XwaFlightObj
 	float basis[9];
 	fl_object_world(cur, basis);
 	float position[3];
-	if (cockpit->seat == 2 && anchor->object_type != OBJ_FamilyTransport) {
-		/* Preserve the pre-TrackIR lower-turret path on other ships. */
+	if (cockpit->seat == 2 && !XwaTurretMount_UsesClassicPivot(cockpit->seat, anchor->object_type)) {
+		/* Legacy view-space path remains for other lower-turret craft. */
 	float eye_offset[3];
 	for (int axis = 0; axis < 3; ++axis) {
 		eye_offset[axis] = -(cockpit->hardpoint_world[axis] + cockpit->camera_pan[axis] * 0.0625f);
@@ -1986,16 +1986,15 @@ static int fl_cockpit_model_matrix(const XwaCockpit* cockpit, const XwaFlightObj
 	}
 
 	} else {
-		/* Otana lower turret: preserve the classic LOCAL-space 180 turn
-		 * around the native seat hardpoint. The gun/eye can move with aim;
-		 * the ship origin and observer orientation do not acquire that turn. */
-		const int otana_ventral = cockpit->seat == 2 && anchor->object_type == OBJ_FamilyTransport;
-		if (otana_ventral) {
+		/* Otana and Falcon lower turrets: same classic model-local half-turn
+		 * at the live gunner seat pivot, never the moving view basis. */
+		const int classic_ventral = XwaTurretMount_UsesClassicPivot(cockpit->seat, anchor->object_type);
+		if (classic_ventral) {
 			XwaTurretMount_ApplyVentralFacing(basis);
 		}
 		XwaTurretMount_CockpitOrigin(camera_local, cockpit->trackir_head_offset,
 									cockpit->hardpoint_world, cockpit->camera_pan, position);
-		if (otana_ventral) {
+		if (classic_ventral) {
 			XwaTurretMount_AnchorAtSeatPivot(basis, cockpit->hardpoint_world,
 											cockpit->hardpoint_local, position);
 		}
@@ -3216,8 +3215,8 @@ static void fl_submit_hyperspace_cockpit(AeronCommandBuffer* cmd, XwaRemasterAss
 	memcpy(bw, anchor_bw, sizeof bw);
 	float pw[3];
 	if (snap->cockpit.seat == 2 &&
-		(!player_f || player_f->object_type != OBJ_FamilyTransport)) {
-		/* All other ships' lower turrets retain their previous render path. */
+		(!player_f || !XwaTurretMount_UsesClassicPivot(snap->cockpit.seat, player_f->object_type))) {
+		/* Other lower-turret models retain their existing view-space path. */
 	float w[3], delta[3];
 	for (int a = 0; a < 3; a++) {
 		w[a] = -(snap->cockpit.hardpoint_world[a] + snap->cockpit.camera_pan[a] * 0.0625f);
@@ -3255,14 +3254,14 @@ static void fl_submit_hyperspace_cockpit(AeronCommandBuffer* cmd, XwaRemasterAss
 	}
 
 	} else {
-		const int otana_ventral = snap->cockpit.seat == 2 && player_f &&
-			player_f->object_type == OBJ_FamilyTransport;
-		if (otana_ventral) {
+		const int classic_ventral = player_f &&
+			XwaTurretMount_UsesClassicPivot(snap->cockpit.seat, player_f->object_type);
+		if (classic_ventral) {
 			XwaTurretMount_ApplyVentralFacing(bw);
 		}
 		XwaTurretMount_CockpitOrigin(s.camera_local, snap->cockpit.trackir_head_offset,
 										snap->cockpit.hardpoint_world, snap->cockpit.camera_pan, pw);
-		if (otana_ventral) {
+		if (classic_ventral) {
 			XwaTurretMount_AnchorAtSeatPivot(bw, snap->cockpit.hardpoint_world,
 											snap->cockpit.hardpoint_local, pw);
 		}
