@@ -11702,6 +11702,27 @@ void Flight_UpdateEntity(unsigned int playerIdx) {
 				double integrationScale;
 				ModernTurretAngleRemainder* angleRemainder;
 
+				if (seatIdx == 1) {
+					/* The ventral turret retains its exact pre-TrackIR gunner
+					 * response. The faster upper-turret path is unchanged. */
+				if (XwaModernFlightTiming_IsHighRate()) {
+					integrationScale = (double)(uint16_t)g_elapsedTicks / 8.0;
+					accumA = craft->turretAim.aimAccumA[seatIdx] +
+							 ((double)g_players[playerIdx].smoothedInputPitch * 0.1 -
+							  craft->turretAim.aimAccumA[seatIdx] * 0.25) *
+								 integrationScale;
+					accumB = craft->turretAim.aimAccumB[seatIdx] +
+							 ((double)g_players[playerIdx].smoothedInputYaw * 0.1 -
+							  craft->turretAim.aimAccumB[seatIdx] * 0.25) *
+								 integrationScale;
+				} else {
+					integrationScale = 1.0;
+					accumA = (double)g_players[playerIdx].smoothedInputPitch * 0.1 -
+							 craft->turretAim.aimAccumA[seatIdx] * 0.25 + craft->turretAim.aimAccumA[seatIdx];
+					accumB = (double)g_players[playerIdx].smoothedInputYaw * 0.1 -
+							 craft->turretAim.aimAccumB[seatIdx] * 0.25 + craft->turretAim.aimAccumB[seatIdx];
+				}
+				} else {
 				/* Turret gunner uses the same smoothed yaw/pitch inputs as the pilot,
 				 * but has its own rotational response and angle limits. Increase
 				 * the effective aim rate and reduce lag for BOTH mouse and stick.
@@ -11715,6 +11736,7 @@ void Flight_UpdateEntity(unsigned int playerIdx) {
 				accumB = XwaTurretAim_UpdateAccumulator(
 					craft->turretAim.aimAccumB[seatIdx],
 					g_players[playerIdx].smoothedInputYaw, integrationScale);
+				}
 				angleRemainder = &g_modernTurretAngleRemainders[playerIdx][seatIdx];
 				if (!angleRemainder->initialized ||
 					angleRemainder->objectIdx != g_players[playerIdx].objectIndex ||
