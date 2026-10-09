@@ -11656,21 +11656,25 @@ void Flight_UpdateEntity(unsigned int playerIdx) {
 				double integrationScale;
 				ModernTurretAngleRemainder* angleRemainder;
 
+				/* A normalized steady-state turret response: with 0.25 damping,
+				 * input gain 0.25 yields a unit response to smoothed steering,
+				 * rather than the original 0.1 / 0.25 = 40%. Applies equally
+				 * to mouse and joystick without altering aim limits. */
 				if (XwaModernFlightTiming_IsHighRate()) {
 					integrationScale = (double)(uint16_t)g_elapsedTicks / 8.0;
 					accumA = craft->turretAim.aimAccumA[seatIdx] +
-							 ((double)g_players[playerIdx].smoothedInputPitch * 0.1 -
+							 ((double)g_players[playerIdx].smoothedInputPitch * 0.25 -
 							  craft->turretAim.aimAccumA[seatIdx] * 0.25) *
 								 integrationScale;
 					accumB = craft->turretAim.aimAccumB[seatIdx] +
-							 ((double)g_players[playerIdx].smoothedInputYaw * 0.1 -
+							 ((double)g_players[playerIdx].smoothedInputYaw * 0.25 -
 							  craft->turretAim.aimAccumB[seatIdx] * 0.25) *
 								 integrationScale;
 				} else {
 					integrationScale = 1.0;
-					accumA = (double)g_players[playerIdx].smoothedInputPitch * 0.1 -
+					accumA = (double)g_players[playerIdx].smoothedInputPitch * 0.25 -
 							 craft->turretAim.aimAccumA[seatIdx] * 0.25 + craft->turretAim.aimAccumA[seatIdx];
-					accumB = (double)g_players[playerIdx].smoothedInputYaw * 0.1 -
+					accumB = (double)g_players[playerIdx].smoothedInputYaw * 0.25 -
 							 craft->turretAim.aimAccumB[seatIdx] * 0.25 + craft->turretAim.aimAccumB[seatIdx];
 				}
 				angleRemainder = &g_modernTurretAngleRemainders[playerIdx][seatIdx];
