@@ -1214,11 +1214,6 @@ void FlightView_UpdatePlayerCamera(int playerIdx) {
 					g_players[playerIdx].viewState.viewAngleD, 0, 0,
 					&g_objectTable[cameraFocusObjIdx], playerIdx);
 				FVIEW_CopyRenderCameraRows(seatRows);
-				if (g_players[playerIdx].currentSeatIdx > 0) {
-					/* Snapshot the turret barrel's aim orientation before head-look
-					 * rotations. This must NOT steer the guns or use ship-forward. */
-					XwaTrackIR_SetTurretAimDirection(&seatRows[6]);
-				}
 			}
 #endif
 			g_players[playerIdx].viewState.viewYaw =
