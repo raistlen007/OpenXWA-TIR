@@ -830,8 +830,13 @@ static int host_config_input_options(const AeronConfigFile* config, int required
 			out->controller2.joystick.axes[axis].source = -1;
 		}
 		for (btn = 0; btn < XWA_CONTROLLER_LOGICAL_BUTTON_COUNT; ++btn) {
-			out->controller2.gamepad.buttons[btn].kind = AERON_CONTROLLER_DIGITAL_NONE;
-			out->controller2.joystick.buttons[btn].kind = AERON_CONTROLLER_DIGITAL_NONE;
+			/* A disabled binding must have kind NONE *and* index zero.
+			 * Clearing only kind leaves copied legacy button indices, which
+			 * the profile validator rejects during shipped config startup. */
+			memset(&out->controller2.gamepad.buttons[btn], 0,
+				   sizeof(out->controller2.gamepad.buttons[btn]));
+			memset(&out->controller2.joystick.buttons[btn], 0,
+				   sizeof(out->controller2.joystick.buttons[btn]));
 		}
 		memset(out->controller2.gamepad.actions, 0, sizeof out->controller2.gamepad.actions);
 		memset(out->controller2.joystick.actions, 0, sizeof out->controller2.joystick.actions);
