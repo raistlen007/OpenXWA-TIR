@@ -68,6 +68,13 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Verify orientation math regressions
+        run: |
+          cc -std=c99 -Wall -Wextra -Werror -Isrc \
+            tests/orientation_regression.c src/xwa_runtime/hooks/orientation_hook.c \
+            -lm -o /tmp/xwa-orientation-test
+          /tmp/xwa-orientation-test
+
       - name: Determine short commit hash
         id: sha
         run: echo "short=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
