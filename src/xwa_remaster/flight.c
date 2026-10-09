@@ -3132,8 +3132,9 @@ static int fl_hyper_normalize_axis(float axis[3]) {
 	return 1;
 }
 
-static void fl_hyper_build_tunnel_view(const AeronSceneCamera* camera, const float player_bw[9],
+static void fl_hyper_build_tunnel_view(const XwaRemasterFlightView* view, const float player_bw[9],
 									   int player_found, XwaRemasterHyperspaceTunnelView* out) {
+	const AeronSceneCamera* camera = &view->camera;
 	memset(out, 0, sizeof *out);
 	out->right[0] = 1.0f;
 	out->up[1] = -1.0f;
@@ -3174,6 +3175,22 @@ static void fl_hyper_build_tunnel_view(const AeronSceneCamera* camera, const flo
 	memcpy(out->right, right, sizeof out->right);
 	memcpy(out->up, up, sizeof out->up);
 	memcpy(out->forward, forward, sizeof out->forward);
+	/* The transition flash must be exactly where the normal flight HUD
+	 * projects the ship's forward direction. Do not duplicate the camera's
+	 * projection arithmetic or invent cockpit / widescreen offsets. */
+	if (forward[2] <= 0.0001f) {
+		out->flash_center_valid = -1;
+	} else {
+		float pixel_x, pixel_y;
+		if (XwaRemasterFlight_ProjectView(view, forward, &pixel_x, &pixel_y) &&
+			isfinite(pixel_x) && isfinite(pixel_y)) {
+			out->flash_center_uv[0] = (pixel_x - (float)view->viewport.x) / (float)view->viewport.width;
+			out->flash_center_uv[1] = (pixel_y - (float)view->viewport.y) / (float)view->viewport.height;
+			out->flash_center_valid = 1;
+		} else {
+			out->flash_center_valid = -1;
+		}
+	}
 }
 
 /* Hyperspace uses the same state-derived cockpit transform and articulation
@@ -3464,7 +3481,7 @@ static AeronTexture* fl_render_hyperspace(AeronCommandBuffer* cmd, const XwaSnap
 	fl_hyper_find_poses(snap, &snap->flight_camera, anchor_bw, &anchor_found, &player_f, player_bw,
 						player_local, &player_found);
 	XwaRemasterHyperspaceTunnelView tunnel_view;
-	fl_hyper_build_tunnel_view(&flight_view->camera, player_bw, player_found, &tunnel_view);
+	fl_hyper_build_tunnel_view(flight_view, player_bw, player_found, &tunnel_view);
 
 	float preview_time = 0.0f;
 	if (preview && host_time_us >= s.hyperspace_preview_epoch_us) {
