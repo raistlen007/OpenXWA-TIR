@@ -1891,9 +1891,19 @@ void Object_UpdateLifetimeAndMovement(void) {
 					}
 					nm = obj->mobj;
 					if (!nm->velocityOverrideActive || nm->velocityOverrideDuration) {
+#ifdef XWA_MODERN
+						/* Forward displacement must round signed components symmetrically.
+						 * The legacy arithmetic shift produces -1 unit per low-speed
+						 * tick for a tiny negative vertical component, but 0 for a tiny
+						 * positive one: the reported slow-flight downward drift. */
+						trig2_xmovedist += XwaObject_ForwardAxisStep((int16_t)nm->moveX, (uint16_t)fwdScalar);
+						trig2_ymovedist += XwaObject_ForwardAxisStep((int16_t)nm->moveY, (uint16_t)fwdScalar);
+						trig2_zmovedist += XwaObject_ForwardAxisStep((int16_t)nm->moveZ, (uint16_t)fwdScalar);
+#else
 						trig2_xmovedist += Xwa_Q15Mul((int16_t)nm->moveX, (uint16_t)fwdScalar);
 						trig2_ymovedist += Xwa_Q15Mul((int16_t)obj->mobj->moveY, (uint16_t)fwdScalar);
 						trig2_zmovedist += Xwa_Q15Mul((int16_t)obj->mobj->moveZ, (uint16_t)fwdScalar);
+#endif
 					}
 
 					if (mc->workingSubsystems) {
