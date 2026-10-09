@@ -12,7 +12,7 @@ extern "C" {
 
 typedef struct XwaControllerLogicalState {
 	uint32_t axes[XWA_CONTROLLER_LOGICAL_AXIS_COUNT];
-	uint32_t buttons;
+	uint64_t buttons;
 	int pov_direction; /* -1 centered, otherwise up/right/down/left = 0..3. */
 	int has_pov;
 	int8_t source_axes[XWA_CONTROLLER_LOGICAL_AXIS_COUNT];
@@ -20,6 +20,10 @@ typedef struct XwaControllerLogicalState {
 } XwaControllerLogicalState;
 
 void XwaControllerMapping_SetOptions(const XwaControllerOptions* options);
+void XwaControllerMapping_SetSecondaryOptions(const XwaControllerOptions* options);
+const AeronControllerSnapshot* XwaControllerMapping_ControllerForSlot(int slot);
+int XwaControllerMapping_RumbleSlot(int slot, uint16_t low, uint16_t high, uint32_t duration_ms);
+void XwaControllerMapping_ReadActions(uint16_t* key, int* key_mods);
 const AeronControllerSnapshot* XwaControllerMapping_SelectedController(void);
 uint32_t XwaControllerMapping_SelectedInstanceId(void);
 int XwaControllerMapping_SelectedHasRumble(void);
