@@ -1501,6 +1501,8 @@ void XwaSnapshot_CaptureFlight(void) {
 			k->camera_pan[1] = (float)vs->cameraPanDeltaY;
 			k->camera_pan[2] = (float)vs->cameraPanDeltaZ;
 			XwaTrackIR_GetCameraOffset(k->trackir_head_offset);
+			k->turret_seat_base_valid =
+				(uint8_t)(k->seat > 0 && XwaTrackIR_GetTurretSeatFrame(k->turret_seat_base_rows));
 			const char* name = XwaSnapshotExport_OptHandleName(handle);
 			if (name != NULL) {
 				snprintf(k->model_name, sizeof k->model_name, "%s", name);
