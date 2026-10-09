@@ -198,6 +198,12 @@ XwaOrientationAngles XwaOrientation_ApplyPitchYaw(XwaOrientationAngles current, 
 	float yaw;
 	float roll;
 
+	/* No rotation means no new Euler decomposition. In particular, never
+	 * re-encode an unchanged attitude near a gimbal singularity. */
+	if (pitchDeltaQ16 == 0 && negYawDeltaQ16 == 0) {
+		return current;
+	}
+
 	XwaOrientation_ToRadians(current, &pitch, &yaw, &roll);
 	XwaOrientation_RotateLocal(matrix, 1, yaw);
 	XwaOrientation_RotateLocal(matrix, 0, pitch);
