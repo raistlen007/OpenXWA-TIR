@@ -1938,9 +1938,9 @@ static int fl_cockpit_model_matrix(const XwaCockpit* cockpit, const XwaFlightObj
 	}
 	float basis[9];
 	fl_object_world(cur, basis);
+	float position[3];
 	if (cockpit->seat == 2 && anchor->object_type != OBJ_CorellianTransport2) {
-		/* Preserve the original rendering path for other ships' lower turrets:
-		 * this compatibility test changes only the Otana. */
+		/* Other ships retain the original seat-2 renderer unchanged. */
 	float eye_offset[3];
 	for (int axis = 0; axis < 3; ++axis) {
 		eye_offset[axis] = -(cockpit->hardpoint_world[axis] + cockpit->camera_pan[axis] * 0.0625f);
@@ -1990,23 +1990,16 @@ static int fl_cockpit_model_matrix(const XwaCockpit* cockpit, const XwaFlightObj
 									cockpit->hardpoint_world, cockpit->camera_pan, position);
 	}
 
-		fl_model_matrix(basis, position, out);
-		return 1;
-	}
-	/* The ventral turret requires the same 180-degree LOCAL-X mounting
-	 * convention as the original lower gunner cockpit. Apply it in the
-	 * fixed SHIP basis: applying it in eye space made it follow gun aim,
-	 * translating/rotating the whole housing when the turret moved.
-	 * Pilot and upper seat keep their existing transforms unchanged. */
-	if (cockpit->seat == 2 && anchor->object_type == OBJ_CorellianTransport2) {
-		XwaTurretMount_ApplyVentralFacing(basis);
-	}
-	/* The shell remains bolted to the ship; only its gun OPT nodes articulate.
-	 * Head position, aim-dependent hardpoint, and camera pan move the EYE,
-	 * not the turret's model origin. */
-	float position[3];
-	XwaTurretMount_CockpitOrigin(camera_local, cockpit->trackir_head_offset,
+	} else {
+		/* Only the Otana lower turret faces away from the seat's upper
+		 * frame. Mount the static half-turn on the SHIP, never the aiming
+		 * camera, so its fixed shell doesn't move laterally with the guns. */
+		if (cockpit->seat == 2 && anchor->object_type == OBJ_CorellianTransport2) {
+			XwaTurretMount_ApplyVentralFacing(basis);
+		}
+		XwaTurretMount_CockpitOrigin(camera_local, cockpit->trackir_head_offset,
 									cockpit->hardpoint_world, cockpit->camera_pan, position);
+	}
 	fl_model_matrix(basis, position, out);
 	return 1;
 }
@@ -3221,9 +3214,10 @@ static void fl_submit_hyperspace_cockpit(AeronCommandBuffer* cmd, XwaRemasterAss
 	}
 	float bw[9];
 	memcpy(bw, anchor_bw, sizeof bw);
+	float pw[3];
 	if (snap->cockpit.seat == 2 &&
 		(!player_f || player_f->object_type != OBJ_CorellianTransport2)) {
-		/* Other ships' lower turrets retain the existing hyperspace transform. */
+		/* Preserve the previous lower-turret transform on other ships. */
 	float w[3], delta[3];
 	for (int a = 0; a < 3; a++) {
 		w[a] = -(snap->cockpit.hardpoint_world[a] + snap->cockpit.camera_pan[a] * 0.0625f);
@@ -3264,42 +3258,14 @@ static void fl_submit_hyperspace_cockpit(AeronCommandBuffer* cmd, XwaRemasterAss
 									snap->cockpit.hardpoint_world, snap->cockpit.camera_pan, pw);
 	}
 
-		float m[16];
-		fl_model_matrix(bw, pw, m);
-		AeronSceneMeshInstance inst;
-		memset(&inst, 0, sizeof inst);
-		inst.mesh = cockpit_mesh;
-		inst.variant = player_f ? player_f->node_switch : 0;
-		memcpy(inst.transform, m, sizeof m);
-		memcpy(inst.prev_transform, m, sizeof m);
-		inst.no_local_lights = 1;
-		inst.zero_velocity = 1;
-		inst.cull_mode = AERON_CULL_BACK;
-		AeronSceneMeshTable* tb = &s.tables[s.table_count];
-		if (XwaRemasterShip_BuildCockpitMeshTable(cockpit_mesh, &snap->cockpit, player_f, tb)) {
-			inst.mesh_table = tb;
-			s.table_count++;
+	} else {
+		if (snap->cockpit.seat == 2 && player_f &&
+			player_f->object_type == OBJ_CorellianTransport2) {
+			XwaTurretMount_ApplyVentralFacing(bw);
 		}
-		AeronScene_AddMeshInstance(s.scene, &inst);
-		if (player_f) {
-			XwaRemasterGlowMarks_SubmitObject(s.scene, cmd, assets, snap, player_f, cockpit_mesh, m,
-										  inst.mesh_table, s.glow_mark_emissive_strength);
-		}
-		if (s.glow_ok && player_f) {
-			XwaRemasterShip_SubmitEngineGlows(
-				s.scene, cockpit_mesh, m, AERON_OPT_UNITS_PER_METER, inst.mesh_table,
-				player_f->eg_knockout_mask, XwaRemasterShip_EngineGlowScale(player_f), s.crows,
-				s.camera_local, &s.glow_ref);
-		}
-		return;
+		XwaTurretMount_CockpitOrigin(s.camera_local, snap->cockpit.trackir_head_offset,
+										snap->cockpit.hardpoint_world, snap->cockpit.camera_pan, pw);
 	}
-	/* Identical ship-fixed ventral mounting in hyperspace. */
-	if (snap->cockpit.seat == 2 && player_f && player_f->object_type == OBJ_CorellianTransport2) {
-		XwaTurretMount_ApplyVentralFacing(bw);
-	}
-	float pw[3];
-	XwaTurretMount_CockpitOrigin(s.camera_local, snap->cockpit.trackir_head_offset,
-									snap->cockpit.hardpoint_world, snap->cockpit.camera_pan, pw);
 	float m[16];
 	fl_model_matrix(bw, pw, m);
 	AeronSceneMeshInstance inst;
