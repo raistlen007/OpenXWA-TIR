@@ -6928,15 +6928,25 @@ void Hud_DrawReticle3D(void) {
 	if (effectiveLookYaw || effectiveLookPitch) {
 		int worldZ;
 #ifdef XWA_MODERN
-		float turretAim[3];
-		/* The reticle is locked to where the TURRET aims, not the ship's
-		 * flight axis. A head turn changes the observer, not the gun bore.
-		 * Project a point far along the pre-head-look turret direction. */
-		if (g_players[g_localPlayer].currentSeatIdx > 0 &&
-			XwaTrackIR_GetTurretAimDirection(turretAim)) {
-			g_camRelWorldX = (int)lroundf(turretAim[0] * 1000000.0f);
-			g_camRelWorldY = (int)lroundf(turretAim[1] * 1000000.0f);
-			g_camRelWorldZ = (int)lroundf(turretAim[2] * 1000000.0f);
+		/* The turret's native firing vector is captured in turretCamMat
+		 * BEFORE any cockpit look/TrackIR transforms and is also the exact
+		 * vector laser_createprojectile uses for gunner-fired bolts.
+		 * Project that same world-space bore from the actual camera origin,
+		 * whether TrackIR is connected or not. Head movement changes only
+		 * the projection, never the aim or projectile direction. */
+		if (g_players[g_localPlayer].currentSeatIdx > 0) {
+			const int playerObjIdx = g_players[g_localPlayer].objectIndex;
+			const int16_t* bore = g_players[g_localPlayer].turretCamMat;
+			const int32_t farDistance = 1000000;
+			g_camRelWorldX = g_objectTable[playerObjIdx].world_x -
+				g_players[g_localPlayer].viewState.savedTargetX +
+				(int)((int64_t)bore[0] * farDistance / 32768);
+			g_camRelWorldY = g_objectTable[playerObjIdx].world_y -
+				g_players[g_localPlayer].viewState.savedTargetY +
+				(int)((int64_t)bore[1] * farDistance / 32768);
+			g_camRelWorldZ = g_objectTable[playerObjIdx].world_z -
+				g_players[g_localPlayer].viewState.savedTargetZ +
+				(int)((int64_t)bore[2] * farDistance / 32768);
 		} else
 #endif
 		{
