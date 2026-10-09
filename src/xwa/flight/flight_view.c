@@ -2,6 +2,7 @@
 #include "xwa/render/effects.h"
 #include "xwa/render/renderer_internal.h"
 
+#include "xwa/assets/object_type.h"
 #include "xwa/assets/flight_model.h"
 #include "xwa/flight/fediskio.h"
 #include "xwa/flight/flight.h"
@@ -1191,7 +1192,9 @@ void FlightView_UpdatePlayerCamera(int playerIdx) {
 				g_players[playerIdx].hyperspacePhase == PLAYER_HYPERSPACE_PHASE_NONE &&
 				g_players[playerIdx].cockpitVisible &&
 				((g_players[playerIdx].currentSeatIdx == 0 && g_players[playerIdx].cockpitLookAvailable) ||
-				 (g_players[playerIdx].currentSeatIdx > 0 && g_players[playerIdx].currentSeatIdx != 2 &&
+				 (g_players[playerIdx].currentSeatIdx > 0 &&
+				  !(g_players[playerIdx].currentSeatIdx == 2 &&
+					g_objectTable[g_players[playerIdx].objectIndex].objectType == OBJ_CorellianTransport2) &&
 				  g_players[playerIdx].cockpitToggleAvailable)) &&
 				cameraFocusObjIdx == (unsigned int)g_players[playerIdx].objectIndex) {
 				tracking = XwaTrackIR_Poll(&trackir);
@@ -1297,7 +1300,9 @@ void FlightView_UpdatePlayerCamera(int playerIdx) {
 	 *  - Hyperspace rebuilds the camera from its transition pose.
 	 * Apply 6DOF only after these modes have settled their base camera.
 	 * Never write the headset pose into the ship's control/aim state. */
-	if (playerIdx == g_localPlayer && g_players[playerIdx].currentSeatIdx != 2 &&
+	if (playerIdx == g_localPlayer &&
+		!(g_players[playerIdx].currentSeatIdx == 2 &&
+		  g_objectTable[g_players[playerIdx].objectIndex].objectType == OBJ_CorellianTransport2) &&
 		!g_players[playerIdx].mapCameraState && !g_filmRecording && !g_filmPlaybackMode &&
 		(g_players[playerIdx].hyperspacePhase != PLAYER_HYPERSPACE_PHASE_NONE ||
 		 (g_players[playerIdx].viewState.externalCameraActive &&
