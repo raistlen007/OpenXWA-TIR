@@ -59,6 +59,8 @@ typedef struct XwaControllerProfile {
 } XwaControllerProfile;
 
 typedef struct XwaControllerOptions {
+	/* An empty device GUID means Automatic only while enabled. */
+	int enabled;
 	AeronControllerSelector device;
 	int roll_enabled;
 	int rumble_enabled;
@@ -95,6 +97,7 @@ typedef struct XwaModernInputOptions {
 	int mouse_sensitivity;
 	int mouse_invert_y;
 	XwaControllerOptions controller;
+	XwaControllerOptions controller2;
 	XwaHeadTrackingOptions head_tracking;
 } XwaModernInputOptions;
 
