@@ -27,6 +27,7 @@ typedef struct ControllerCaptureState {
 	int digital_axis;
 	int wait_for_release;
 	int16_t axis_baseline[AERON_CONTROLLER_AXIS_MAX];
+	uint8_t pov_baseline[AERON_CONTROLLER_HAT_MAX];
 } ControllerCaptureState;
 
 typedef struct ControllerBindingRow {
@@ -50,6 +51,13 @@ typedef struct ControllerBindingEditState {
 static ControllerCaptureState g_controllerCapture = { -1, -1, -1, 0, { 0 } };
 static ControllerBindingEditState g_controllerBindingEdit;
 static int g_controllerButtonPage;
+/* Rising-edge selection avoids latched throttle switches stealing focus. */
+static struct {
+	uint32_t instance_id;
+	int16_t axes[AERON_CONTROLLER_AXIS_MAX];
+	uint8_t hats[AERON_CONTROLLER_HAT_MAX];
+	int ready;
+} g_controllerButtonScan;
 static char g_controllerBindingMessage[96];
 static int g_controllerBindingMessageTtl;
 
@@ -309,25 +317,6 @@ static int ControllerScreen_UpdateDigitalAxisCapture(const AeronControllerSnapsh
 	return 1;
 }
 
-static int ControllerScreen_PovReleased(const AeronControllerSnapshot* controller) {
-	int hat;
-
-	if (!controller) {
-		return 0;
-	}
-	if (controller->kind == AERON_CONTROLLER_KIND_GAMEPAD) {
-		return !(controller->gamepad_buttons &
-				 ((1u << AERON_GAMEPAD_BUTTON_DPAD_UP) | (1u << AERON_GAMEPAD_BUTTON_DPAD_RIGHT) |
-				  (1u << AERON_GAMEPAD_BUTTON_DPAD_DOWN) | (1u << AERON_GAMEPAD_BUTTON_DPAD_LEFT)));
-	}
-	for (hat = 0; hat < controller->hat_count; ++hat) {
-		if (controller->raw_hats[hat] != AERON_CONTROLLER_HAT_CENTERED) {
-			return 0;
-		}
-	}
-	return 1;
-}
-
 static int ControllerScreen_FirstPressedButton(const AeronControllerSnapshot* controller) {
 	uint64_t pressed;
 	int source;
@@ -360,9 +349,8 @@ static int ControllerScreen_UpdatePovCapture(XwaModernInputOptions* options,
 		return 0;
 	}
 	if (g_controllerCapture.wait_for_release) {
-		if (ControllerScreen_PovReleased(controller)) {
-			g_controllerCapture.wait_for_release = 0;
-		}
+		/* Do not wait for EVERY hat to center: maintained switches can stay on. */
+		g_controllerCapture.wait_for_release = 0;
 		return 0;
 	}
 	if (controller->kind == AERON_CONTROLLER_KIND_GAMEPAD) {
@@ -373,7 +361,8 @@ static int ControllerScreen_UpdatePovCapture(XwaModernInputOptions* options,
 		}
 	} else {
 		for (source = 0; source < controller->hat_count; ++source) {
-			if (controller->raw_hats[source] != AERON_CONTROLLER_HAT_CENTERED) {
+			if (controller->raw_hats[source] != AERON_CONTROLLER_HAT_CENTERED &&
+				controller->raw_hats[source] != g_controllerCapture.pov_baseline[source]) {
 				break;
 			}
 		}
@@ -408,6 +397,7 @@ void XwaModernControllerOptionsScreen_ResetCapture(void) {
 	g_controllerCapture.button = -1;
 	g_controllerCapture.digital_axis = -1;
 	g_controllerCapture.wait_for_release = 0;
+	memset(&g_controllerButtonScan, 0, sizeof(g_controllerButtonScan));
 }
 
 void XwaModernControllerOptionsScreen_Leave(void) {
@@ -882,8 +872,21 @@ static void ControllerScreen_SelectPressedBinding(const AeronControllerSnapshot*
 		g_controllerCapture.digital_axis >= 0) {
 		return;
 	}
+	/* On entry, baseline held axes and hats. Their levels must not select
+	 * mappings until they cross a threshold or change direction again. */
+	if (!g_controllerButtonScan.ready || g_controllerButtonScan.instance_id != controller->instance_id) {
+		g_controllerButtonScan.ready = 1;
+		g_controllerButtonScan.instance_id = controller->instance_id;
+		memcpy(g_controllerButtonScan.axes, controller->raw_axes, sizeof(g_controllerButtonScan.axes));
+		memcpy(g_controllerButtonScan.hats, controller->raw_hats, sizeof(g_controllerButtonScan.hats));
+		return;
+	}
 	source = ControllerScreen_FirstPressedButton(controller);
 	direction = ControllerScreen_PressedPovDirection(controller, profile);
+	if (controller->kind == AERON_CONTROLLER_KIND_JOYSTICK && profile->pov_source >= 0 &&
+		profile->pov_source < controller->hat_count &&
+		controller->raw_hats[profile->pov_source] == g_controllerButtonScan.hats[profile->pov_source])
+		direction = -1;
 	for (index = 0; index < binding_count; ++index) {
 		const ControllerBindingRow* row = &bindings[index];
 		int active = direction >= 0 && row->pov_direction == direction;
@@ -898,14 +901,21 @@ static void ControllerScreen_SelectPressedBinding(const AeronControllerSnapshot*
 										 : (value < 0 ? (double)-value / 32768.0 : 0.0);
 			const float threshold = row->logical_button >= 0 ? profile->buttons[row->logical_button].threshold
 															 : XWA_CONTROLLER_DIGITAL_THRESHOLD_DEFAULT;
-			active = magnitude >= threshold;
+						const int16_t old = row->source >= 0 && row->source < AERON_CONTROLLER_AXIS_MAX
+										? g_controllerButtonScan.axes[row->source] : 0;
+			const double old_magnitude = row->kind == AERON_CONTROLLER_DIGITAL_AXIS_POSITIVE
+										? (old > 0 ? (double)old / 32767.0 : 0.0)
+										: (old < 0 ? (double)-old / 32768.0 : 0.0);
+			active = magnitude >= threshold && old_magnitude < threshold;
 		}
 		if (active) {
 			g_controllerButtonPage = index / CONTROLLER_PAGE_SIZE;
 			*cursor_row = 1 + index % CONTROLLER_PAGE_SIZE;
-			return;
+			break;
 		}
 	}
+	memcpy(g_controllerButtonScan.axes, controller->raw_axes, sizeof(g_controllerButtonScan.axes));
+	memcpy(g_controllerButtonScan.hats, controller->raw_hats, sizeof(g_controllerButtonScan.hats));
 }
 
 int XwaModernControllerButtonsScreen_Update(int menu_center_x, int* cursor_row) {
@@ -987,6 +997,11 @@ int XwaModernControllerButtonsScreen_Update(int menu_center_x, int* cursor_row) 
 		g_controllerCapture.digital_axis = -1;
 		g_controllerCapture.button = XWA_CONTROLLER_LOGICAL_BUTTON_COUNT;
 		g_controllerCapture.wait_for_release = 1;
+		memset(g_controllerCapture.pov_baseline, 0, sizeof(g_controllerCapture.pov_baseline));
+		if (selected && selected->kind == AERON_CONTROLLER_KIND_JOYSTICK) {
+			memcpy(g_controllerCapture.pov_baseline, selected->raw_hats,
+				   sizeof(g_controllerCapture.pov_baseline));
+		}
 	}
 	if (selected && XwaModernOptionsMenu_LastRowSelected(&menu) &&
 		Keyboard_IsKeyDown(CONTROLLER_KEY_DELETE)) {
