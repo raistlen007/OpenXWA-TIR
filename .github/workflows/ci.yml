@@ -87,11 +87,9 @@ jobs:
             tests/turret_mount_regression.c -lm -o /tmp/xwa-turret-test
           /tmp/xwa-turret-test
 
-      - name: Verify outward lower turret view orientation
+      - name: Verify native turret camera, reticle and projectile alignment
         run: |
-          cc -std=c99 -Wall -Wextra -Werror -Isrc \
-            tests/turret_view_orientation_regression.c -lm -o /tmp/xwa-turret-view-test
-          /tmp/xwa-turret-view-test
+          python3 tests/turret_firing_alignment_regression.py
 
       - name: Verify turret sensitivity and low-lag response
         run: |
