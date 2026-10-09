@@ -59,16 +59,16 @@ check("XwaTrackIR_SetTurretAimDirection" not in camera and
       "TrackIR still owns extra turret weapon-aim state")
 check("XwaTurretMount_CockpitOrigin(" in renderer,
       "ship-fixed cockpit mount was lost")
-# Otana = OBJ_CorellianTransport2, object type 58 in assets/object_type.h.
+# Otana = OBJ_FamilyTransport, object type 65 in assets/object_type.h.
 # The old view-space transform is present ONLY for other ships, guarded by
 # object-type discrimination, while Otana's lower shell uses ship-only data.
-check("OBJ_CorellianTransport2" in renderer and
-      "anchor->object_type != OBJ_CorellianTransport2" in renderer and
-      "anchor->object_type == OBJ_CorellianTransport2" in renderer and
+check("OBJ_FamilyTransport" in renderer and
+      "anchor->object_type != OBJ_FamilyTransport" in renderer and
+      "anchor->object_type == OBJ_FamilyTransport" in renderer and
       "XwaTurretMount_ApplyVentralFacing(basis);" in renderer,
       "Otana-only stable lower cockpit path missing")
-check("player_f->object_type != OBJ_CorellianTransport2" in renderer and
-      "player_f->object_type == OBJ_CorellianTransport2" in renderer and
+check("player_f->object_type != OBJ_FamilyTransport" in renderer and
+      "player_f->object_type == OBJ_FamilyTransport" in renderer and
       "XwaTurretMount_ApplyVentralFacing(bw);" in renderer,
       "Otana-only stable hyperspace cockpit path missing")
 check(renderer.count("XwaTurretMount_CockpitOrigin(") >= 2,
@@ -76,14 +76,14 @@ check(renderer.count("XwaTurretMount_CockpitOrigin(") >= 2,
 check(renderer.count("flipped[1] = -flipped[1];") == 1 and
       renderer.count("e[1] = -e[1];") == 1,
       "unrelated ships' original lower gunner transforms were altered")
-check(camera.count("OBJ_CorellianTransport2") >= 2 and
+check(camera.count("OBJ_FamilyTransport") >= 2 and
       "currentSeatIdx == 2" in camera,
       "TrackIR is not specifically excluded from Otana lower-seat camera views")
-check("g_objectTable[g_players[g_localPlayer].objectIndex].objectType == OBJ_CorellianTransport2" in hud,
+check("g_objectTable[g_players[g_localPlayer].objectIndex].objectType == OBJ_FamilyTransport" in hud,
       "classic HUD does not distinguish Otana lower-seat TrackIR")
 check("!otanaLowerSeat && XwaTrackIR_CurrentPose" in snapshot_hud,
       "modern HUD still applies Otana lower-seat TrackIR")
-check("seatIdx == 1 &&" in flight and "OBJ_CorellianTransport2" in flight,
+check("seatIdx == 1 &&" in flight and "OBJ_FamilyTransport" in flight,
       "Otana lower turret no longer uses its original aim response")
 
 print("turret contracts pass: Otana lower only; guns/projectiles native; ship-fixed shell; TrackIR off on Otana lower")
