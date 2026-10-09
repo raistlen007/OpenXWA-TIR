@@ -1068,20 +1068,23 @@ const AeronFontAtlas* XwaRemasterAssets_FlightFont(XwaRemasterAssets* a,
 uint32_t XwaRemasterAssets_Generation(const XwaRemasterAssets* a) { return a ? a->generation : 0; }
 
 
-/* The shader is deliberately scoped to the ORIGINAL frontend font atlases.
- * 4x-nearest bitmap glyphs benefit from coverage reconstruction; hand-authored
- * HD font textures have their own alpha AA and should not be blurred.
- * Flight font atlases and HUD glyphs never enter this code path.
+/* Frontend-only glyph coverage smoothing. BOTH asset sources use the same
+ * premultiplied-alpha glyph pipeline: the remastered/baked atlas is the
+ * default, and the original decoded atlas is the fallback. Filtering
+ * only the fallback left the normal menu font entirely untouched.
  *
- * One GPU pass at initial font load avoids a per-frame filter, prevents
- * unrelated UI surfaces from becoming soft, and preserves the original
- * font metrics, colors, and all frontend draw/surface events. */
-static void assets_smooth_original_frontend_font(XwaRemasterAssets* a, AeronCommandBuffer* cmd,
+ * Run once when each frontend font atlas is loaded. In-flight fonts
+ * and HUD glyphs have separate loaders and are never filtered here. */
+static void assets_smooth_frontend_font(XwaRemasterAssets* a, AeronCommandBuffer* cmd,
 											FontSlot* slot) {
 	if (!a || !cmd || !slot || !slot->atlas.loaded || !slot->atlas.texture ||
-		slot->atlas.atlas_w <= 0 || slot->atlas.atlas_h <= 0 ||
-		a->frontend_font_filter_unavailable)
+		slot->atlas.atlas_w <= 0 || slot->atlas.atlas_h <= 0)
 		return;
+	if (a->frontend_font_filter_unavailable) {
+		Aeron_LogWarn("xwa.remaster", "frontend font %d: filter unavailable; retaining source atlas",
+				  slot->font_size);
+		return;
+	}
 	if (!a->frontend_font_filter) {
 		a->frontend_font_filter = Aeron_CreateComputePipeline(&(AeronComputePipelineDesc) {
 			.name = "frontend_font_smooth.comp",
@@ -1100,7 +1103,7 @@ static void assets_smooth_original_frontend_font(XwaRemasterAssets* a, AeronComm
 		});
 		if (!a->frontend_font_filter || !a->frontend_font_sampler) {
 			a->frontend_font_filter_unavailable = 1;
-			Aeron_LogWarn("xwa.remaster", "frontend glyph smoothing unavailable; using original atlas");
+			Aeron_LogWarn("xwa.remaster", "frontend glyph smoothing unavailable; retaining frontend atlas");
 			return; /* optional effect; never prevent menus from loading */
 		}
 	}
@@ -1139,7 +1142,8 @@ static void assets_smooth_original_frontend_font(XwaRemasterAssets* a, AeronComm
 	/* Old source atlas must survive until this command buffer has executed. */
 	slot->unsmoothed_texture = slot->atlas.texture;
 	slot->atlas.texture = filtered;
-	Aeron_LogInfo("xwa.remaster", "frontend font %d: GPU coverage smoothing enabled", slot->font_size);
+	Aeron_LogInfo("xwa.remaster", "frontend font %d (source=%s): GPU coverage smoothing submitted",
+				  slot->font_size, assets_source_name(slot->source));
 }
 
 static AssetLoadStatus assets_load_original_frontend_font(XwaRemasterAssets* a,
@@ -1201,8 +1205,7 @@ static AssetLoadStatus assets_load_frontend_font(XwaRemasterAssets* a, AeronComm
 		}
 		if (status == ASSET_LOAD_SUCCESS) {
 			slot->source = (uint8_t)source;
-			if (source == ASSET_SOURCE_ORIGINAL)
-				assets_smooth_original_frontend_font(a, cmd, slot);
+			assets_smooth_frontend_font(a, cmd, slot);
 			Aeron_LogInfo("xwa.remaster", "frontend font %d: source=%s", font_size, assets_source_name(source));
 			*out = &slot->atlas;
 			return ASSET_LOAD_SUCCESS;
