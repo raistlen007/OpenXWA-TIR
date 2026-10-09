@@ -458,13 +458,13 @@ static void hud_capture_direct_state(XwaHudState* out) {
 	/* The HD reticle must use the same effective look direction as the 3D
 	 * camera, without persisting hardware input in the simulation state. */
 	XwaTrackIRPose head;
-	if (XwaTrackIR_CurrentPose(&head)) {
+	if (player->currentSeatIdx != 2 && XwaTrackIR_CurrentPose(&head)) {
 		out->reticle.look_yaw = (int16_t)(out->reticle.look_yaw + head.yaw_q16);
 		out->reticle.look_pitch = (int16_t)(out->reticle.look_pitch + head.pitch_q16);
 	}
 	out->reticle.seat = (uint8_t)player->currentSeatIdx;
 	out->reticle.turret_aim_valid = 0;
-	if (player->currentSeatIdx > 0) {
+	if (player->currentSeatIdx > 0 && player->currentSeatIdx != 2) {
 		/* The modern HUD consumes the same pre-head-look gun-bore matrix
 		 * from which laser_createprojectile launches player turret bolts.
 		 * TrackIR must never supply or change weapon aim; it only changes
