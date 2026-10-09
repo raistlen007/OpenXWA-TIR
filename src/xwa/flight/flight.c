@@ -35,6 +35,7 @@
 #include "xwa/flight/object/collision.h"
 #ifdef XWA_MODERN
 #include "xwa/flight/object/motion_math.h"
+#include "xwa/flight/turret_aim_response.h"
 #endif
 #include "xwa/flight/object/damage.h"
 #include "xwa/flight/object/laser.h"
@@ -11701,27 +11702,18 @@ void Flight_UpdateEntity(unsigned int playerIdx) {
 				double integrationScale;
 				ModernTurretAngleRemainder* angleRemainder;
 
-				/* A normalized steady-state turret response: with 0.25 damping,
-				 * input gain 0.25 yields a unit response to smoothed steering,
-				 * rather than the original 0.1 / 0.25 = 40%. Applies equally
-				 * to mouse and joystick without altering aim limits. */
-				if (XwaModernFlightTiming_IsHighRate()) {
-					integrationScale = (double)(uint16_t)g_elapsedTicks / 8.0;
-					accumA = craft->turretAim.aimAccumA[seatIdx] +
-							 ((double)g_players[playerIdx].smoothedInputPitch * 0.25 -
-							  craft->turretAim.aimAccumA[seatIdx] * 0.25) *
-								 integrationScale;
-					accumB = craft->turretAim.aimAccumB[seatIdx] +
-							 ((double)g_players[playerIdx].smoothedInputYaw * 0.25 -
-							  craft->turretAim.aimAccumB[seatIdx] * 0.25) *
-								 integrationScale;
-				} else {
-					integrationScale = 1.0;
-					accumA = (double)g_players[playerIdx].smoothedInputPitch * 0.25 -
-							 craft->turretAim.aimAccumA[seatIdx] * 0.25 + craft->turretAim.aimAccumA[seatIdx];
-					accumB = (double)g_players[playerIdx].smoothedInputYaw * 0.25 -
-							 craft->turretAim.aimAccumB[seatIdx] * 0.25 + craft->turretAim.aimAccumB[seatIdx];
-				}
+				/* Turret gunner uses the same smoothed yaw/pitch inputs as the pilot,
+				 * but has its own rotational response and angle limits. Increase
+				 * the effective aim rate and reduce lag for BOTH mouse and stick.
+				 * Preserve compatibility with the high-rate simulation cadence. */
+				integrationScale = XwaTurretAim_TimeScale((uint16_t)g_elapsedTicks,
+											 XwaModernFlightTiming_IsHighRate());
+				accumA = XwaTurretAim_UpdateAccumulator(
+					craft->turretAim.aimAccumA[seatIdx],
+					g_players[playerIdx].smoothedInputPitch, integrationScale);
+				accumB = XwaTurretAim_UpdateAccumulator(
+					craft->turretAim.aimAccumB[seatIdx],
+					g_players[playerIdx].smoothedInputYaw, integrationScale);
 				angleRemainder = &g_modernTurretAngleRemainders[playerIdx][seatIdx];
 				if (!angleRemainder->initialized ||
 					angleRemainder->objectIdx != g_players[playerIdx].objectIndex ||
