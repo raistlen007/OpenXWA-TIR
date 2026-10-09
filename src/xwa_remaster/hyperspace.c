@@ -340,22 +340,6 @@ static float hyper_transition_center_y(const XwaFlightCamera* camera) {
 	return 1.0f - ((float)camera->vp_center_y - (float)camera->proj_offset_y) / (float)camera->vp_h;
 }
 
-/* The flash is aligned with the ship's boresight, not TrackIR head-forward.
- * Ship-forward in eye space is already supplied by the hyperspace tunnel view. */
-static int hyper_project_ship_flash(const XwaRemasterHyperspaceTunnelView* view, float center[2]) {
-	float inv_forward, ndc_x, ndc_y;
-	if (!view) return 0; /* Fallback to the previous center for previews. */
-	if (!isfinite(view->forward[2]) || view->forward[2] <= 0.0001f) return -1;
-	if (view->tan_half_fov_x <= 0.0f || view->tan_half_fov_y <= 0.0f) return 0;
-	inv_forward = 1.0f / view->forward[2];
-	ndc_x = view->forward[0] * inv_forward / view->tan_half_fov_x + view->proj_offset_x;
-	ndc_y = -view->forward[1] * inv_forward / view->tan_half_fov_y + view->proj_offset_y;
-	if (!isfinite(ndc_x) || !isfinite(ndc_y)) return -1;
-	center[0] = 0.5f * (ndc_x + 1.0f);
-	center[1] = 0.5f * (1.0f - ndc_y);
-	return 1;
-}
-
 static float hyper_dot3(const float a[3], const float b[3]) {
 	return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
 }
@@ -572,15 +556,14 @@ int XwaRemasterHyperspace_Prepare(XwaRemasterHyperspace* h, AeronCommandBuffer* 
 		flash_alpha = 0.0f;
 	if (flash_alpha > 1.0f)
 		flash_alpha = 1.0f;
-	if (flash_alpha > 0.0f) {
-		float center[2];
-		const int projected = hyper_project_ship_flash(tunnel_view, center);
-		if (projected < 0) {
+	if (flash_alpha > 0.0f && tunnel_view) {
+		if (tunnel_view->flash_center_valid < 0) {
 			/* The ship-forward flash is behind the observer. */
 			flash_alpha = 0.0f;
-		} else if (projected > 0) {
-			h->tunnel_uniform.view[2] = center[0];
-			h->tunnel_uniform.view[3] = center[1];
+		} else if (tunnel_view->flash_center_valid > 0) {
+			/* Same exact camera projection as the HUD reticle. */
+			h->tunnel_uniform.view[2] = tunnel_view->flash_center_uv[0];
+			h->tunnel_uniform.view[3] = tunnel_view->flash_center_uv[1];
 		}
 	}
 	if (flash_alpha > 0.0f) {
