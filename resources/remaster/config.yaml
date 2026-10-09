@@ -33,6 +33,7 @@ input:
         pitch: { source: 'lefty', invert: true, deadzone: 0.08 }
         throttle: { source: 'righttrigger', invert: false, deadzone: 0.0 }
         roll: { source: 'rightx', invert: false, deadzone: 0.08 }
+        hyperdrive: { source: 'none', invert: false, deadzone: 0.0 }
       buttons:
         '1': 'south'
         '2': 'east'
@@ -79,6 +80,7 @@ input:
         pitch: { source: 1, invert: true, deadzone: 0.08 }
         throttle: { source: 2, invert: false, deadzone: 0.08 }
         roll: { source: 3, invert: false, deadzone: 0.08 }
+        hyperdrive: { source: 'none', invert: false, deadzone: 0.0 }
       buttons:
         '1': 0
         '2': 1

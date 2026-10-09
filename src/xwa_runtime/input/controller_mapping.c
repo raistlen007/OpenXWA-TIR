@@ -14,6 +14,8 @@ typedef struct XwaControllerMappingState {
 	int configured;
 	uint32_t previous_instance_id;
 	uint32_t digital_axis_buttons;
+	uint32_t hyperdrive_instance_id;
+	int hyperdrive_armed;
 } XwaControllerMappingState;
 
 static XwaControllerMappingState g_controllerMapping;
@@ -322,6 +324,8 @@ int XwaControllerMapping_ConsumeSelectionChange(void) {
 				  g_controllerMapping.previous_instance_id, instance_id);
 	g_controllerMapping.previous_instance_id = instance_id;
 	g_controllerMapping.digital_axis_buttons = 0;
+	g_controllerMapping.hyperdrive_armed = 0;
+	g_controllerMapping.hyperdrive_instance_id = 0;
 	ControllerMapping_LogUnavailableSources(XwaControllerMapping_SelectedController());
 	return 1;
 }
@@ -334,6 +338,37 @@ int XwaControllerMapping_GetState(XwaControllerLogicalState* state) {
 								  g_controllerMapping.digital_axis_buttons,
 								  &g_controllerMapping.digital_axis_buttons, state);
 	return controller != NULL;
+}
+
+int XwaControllerMapping_ConsumeHyperdriveEngage(void) {
+	XwaControllerLogicalState state;
+	const AeronInputSnapshot* input = Aeron_InputSnapshot();
+	const AeronControllerSnapshot* controller = XwaControllerMapping_SelectedController();
+	uint32_t value;
+
+	/* Never carry an armed lever through focus loss, disconnection or unbinding. */
+	if (!input || !input->has_focus || !controller || !controller->connected ||
+		!XwaControllerMapping_GetState(&state) ||
+		state.source_axes[XWA_CONTROLLER_AXIS_HYPERDRIVE] < 0) {
+		g_controllerMapping.hyperdrive_armed = 0;
+		g_controllerMapping.hyperdrive_instance_id = 0;
+		return 0;
+	}
+	if (controller->instance_id != g_controllerMapping.hyperdrive_instance_id) {
+		g_controllerMapping.hyperdrive_instance_id = controller->instance_id;
+		g_controllerMapping.hyperdrive_armed = 0;
+	}
+	value = state.axes[XWA_CONTROLLER_AXIS_HYPERDRIVE];
+	/* Mapped range: -1 = 0, -0.95 ~ 1638, -0.8 ~ 6554. */
+	if (value <= 1638u) {
+		g_controllerMapping.hyperdrive_armed = 1;
+		return 0;
+	}
+	if (value >= 6554u && g_controllerMapping.hyperdrive_armed) {
+		g_controllerMapping.hyperdrive_armed = 0;
+		return 1;
+	}
+	return 0;
 }
 
 void XwaControllerMapping_CopySelectedActions(uint16_t actions[XWA_CONTROLLER_ACTION_COUNT]) {

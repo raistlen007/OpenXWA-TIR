@@ -57,6 +57,7 @@
 #include "xwa/util/time.h"
 #include "xwa_runtime/input/winmm_joystick_provider.h"
 #ifdef XWA_MODERN
+#include "xwa_runtime/input/controller_mapping.h"
 #include "xwa_runtime/input/mouse_flight.h"
 #include "xwa_runtime/runtime/flight_pause_task.h"
 #include "xwa_runtime/timing/modern_flight_timing.h"
@@ -2510,6 +2511,28 @@ uint16_t FlightInput_Read(int playerIdxOrSentinel) {
 		if (key == 0 && !g_padlockMouseLookEnabled && XwaMouseFlight_TakeTargetTap() &&
 			g_players[g_localPlayer].msgTypeId == 0) {
 			key = KEY_ALT_1;
+		}
+
+		/* Only the active hyperspace confirmation (action 10) may be
+		 * acknowledged by the lever. In particular, action 2 enters the
+		 * hangar and must never be acknowledged this way. Sample every
+		 * movement so early lever pushes cannot engage later. */
+		{
+			const int lever_pushed = XwaControllerMapping_ConsumeHyperdriveEngage();
+			if (lever_pushed && g_joystickEnabled && key == 0 && !g_filmPlaybackMode &&
+				!g_inHangarReady && g_localPlayer >= 0 && g_localPlayer < 8 &&
+				g_players[g_localPlayer].pendingActionId == 10 &&
+				g_players[g_localPlayer].msgTypeId == 0 &&
+				!g_players[g_localPlayer].mapCameraState &&
+				!g_players[g_localPlayer].hasCheckpointFlag &&
+				g_players[g_localPlayer].hyperspacePhase == PLAYER_HYPERSPACE_PHASE_NONE &&
+				(uint16_t)g_players[g_localPlayer].objectIndex != 0xffffu) {
+				const MobileObject* player_ship =
+					g_objectTable[(uint16_t)g_players[g_localPlayer].objectIndex].mobj;
+				if (player_ship && player_ship->pCraft && (player_ship->pCraft->systemFlags & 0x80u)) {
+					key = KEY_SPACE;
+				}
+			}
 		}
 #endif
 
