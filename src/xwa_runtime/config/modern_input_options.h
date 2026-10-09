@@ -113,6 +113,7 @@ void XwaModernInputOptions_Get(XwaModernInputOptions* out);
 void XwaModernInputOptions_GetDefaults(XwaModernInputOptions* out);
 int XwaModernInputOptions_Set(const XwaModernInputOptions* options);
 int XwaModernInputOptions_RestoreControllerDefaults(void);
+int XwaModernInputOptions_RestoreControllerSlotDefaults(int slot);
 int XwaModernInputOptions_Flush(void);
 int XwaModernInputOptions_IsDirty(void);
 
