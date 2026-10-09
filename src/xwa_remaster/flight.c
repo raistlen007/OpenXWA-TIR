@@ -1939,7 +1939,7 @@ static int fl_cockpit_model_matrix(const XwaCockpit* cockpit, const XwaFlightObj
 	float basis[9];
 	fl_object_world(cur, basis);
 	float position[3];
-	if (cockpit->seat == 2 && anchor->object_type != OBJ_CorellianTransport2) {
+	if (cockpit->seat == 2 && anchor->object_type != OBJ_FamilyTransport) {
 		/* Preserve the pre-TrackIR lower-turret path on other ships. */
 	float eye_offset[3];
 	for (int axis = 0; axis < 3; ++axis) {
@@ -1988,7 +1988,7 @@ static int fl_cockpit_model_matrix(const XwaCockpit* cockpit, const XwaFlightObj
 	} else {
 		/* Otana lower turret: rotate static ship-local facing, never the
 		 * moving camera. Pilot and upper turret pass through unchanged. */
-		if (cockpit->seat == 2 && anchor->object_type == OBJ_CorellianTransport2) {
+		if (cockpit->seat == 2 && anchor->object_type == OBJ_FamilyTransport) {
 			XwaTurretMount_ApplyVentralFacing(basis);
 		}
 		XwaTurretMount_CockpitOrigin(camera_local, cockpit->trackir_head_offset,
@@ -3210,7 +3210,7 @@ static void fl_submit_hyperspace_cockpit(AeronCommandBuffer* cmd, XwaRemasterAss
 	memcpy(bw, anchor_bw, sizeof bw);
 	float pw[3];
 	if (snap->cockpit.seat == 2 &&
-		(!player_f || player_f->object_type != OBJ_CorellianTransport2)) {
+		(!player_f || player_f->object_type != OBJ_FamilyTransport)) {
 		/* All other ships' lower turrets retain their previous render path. */
 	float w[3], delta[3];
 	for (int a = 0; a < 3; a++) {
@@ -3250,7 +3250,7 @@ static void fl_submit_hyperspace_cockpit(AeronCommandBuffer* cmd, XwaRemasterAss
 
 	} else {
 		if (snap->cockpit.seat == 2 && player_f &&
-			player_f->object_type == OBJ_CorellianTransport2) {
+			player_f->object_type == OBJ_FamilyTransport) {
 			XwaTurretMount_ApplyVentralFacing(bw);
 		}
 		XwaTurretMount_CockpitOrigin(s.camera_local, snap->cockpit.trackir_head_offset,
