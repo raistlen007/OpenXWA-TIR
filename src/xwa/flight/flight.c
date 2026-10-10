@@ -57,6 +57,9 @@
 #include "xwa/util/time.h"
 #include "xwa_runtime/input/winmm_joystick_provider.h"
 #ifdef XWA_MODERN
+#include "xwa_runtime/input/controller_mapping.h"
+#endif
+#ifdef XWA_MODERN
 #include "xwa_runtime/input/mouse_flight.h"
 #include "xwa_runtime/runtime/flight_pause_task.h"
 #include "xwa_runtime/timing/modern_flight_timing.h"
@@ -2579,6 +2582,11 @@ uint16_t FlightInput_Read(int playerIdxOrSentinel) {
 			}
 			g_controlMask = filteredMask;
 			keyMods = keyModAlt2 + 2 * keyModAlt3;
+#ifdef XWA_MODERN
+			/* Two independent physical devices, including their expanded button
+			 * bindings, feed the same source-agnostic flight key stream. */
+			XwaControllerMapping_ReadActions(&key, &keyMods);
+#endif
 		}
 
 		if (key == 0) {
