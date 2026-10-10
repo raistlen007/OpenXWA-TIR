@@ -12,6 +12,8 @@ extern "C" {
 #endif
 
 #define XWA_HOST_CONFIG_PATH_CAPACITY 1024
+/* User-writable settings for this private dual-controller build only. */
+#define XWA_HOST_USER_CONFIG_FILENAME "config.dual-controller.yaml"
 
 typedef struct XwaHostConfig {
 	char game_data_path[XWA_HOST_CONFIG_PATH_CAPACITY];

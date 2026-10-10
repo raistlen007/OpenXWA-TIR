@@ -882,7 +882,7 @@ static int host_config_input_options(const AeronConfigFile* config, int required
 	}
 	if (!XwaModernInputOptions_Validate(out)) {
 		return host_config_error(error, error_size, "invalid input configuration in %s",
-								 required ? "remaster/config.yaml" : "config.yaml");
+								 required ? "remaster/config.yaml" : XWA_HOST_USER_CONFIG_FILENAME);
 	}
 	return 1;
 }
@@ -940,7 +940,7 @@ static int host_config_validate_input_maps(const AeronConfigFile* config, char* 
 }
 
 int XwaHostConfig_Load(AeronVfs* vfs, XwaHostConfig* out, char* error, size_t error_size) {
-	static const char* path = "config.yaml";
+	static const char* path = XWA_HOST_USER_CONFIG_FILENAME;
 	AeronConfigFile* config = NULL;
 	if (!vfs || !out) {
 		return host_config_error(error, error_size, "cannot load %s", path);
@@ -1014,14 +1014,14 @@ static int host_config_prepare_user_document(AeronVfs* vfs, AeronConfigFile** do
 											 size_t error_size) {
 	AeronConfigError config_error = { 0 };
 
-	if (AeronVfs_Exists(vfs, AERON_VFS_ROOT_USER, "config.yaml")) {
-		if (AeronConfigFile_LoadYamlEx(vfs, AERON_VFS_ROOT_USER, "config.yaml", document, &config_error)) {
+	if (AeronVfs_Exists(vfs, AERON_VFS_ROOT_USER, XWA_HOST_USER_CONFIG_FILENAME)) {
+		if (AeronConfigFile_LoadYamlEx(vfs, AERON_VFS_ROOT_USER, XWA_HOST_USER_CONFIG_FILENAME, document, &config_error)) {
 			return 1;
 		}
 		return host_config_error(error, error_size, "could not update user configuration: %s",
 								 config_error.message);
 	}
-	if (!AeronConfigFile_CreateMap(AERON_VFS_ROOT_USER, "config.yaml", document, &config_error) ||
+	if (!AeronConfigFile_CreateMap(AERON_VFS_ROOT_USER, XWA_HOST_USER_CONFIG_FILENAME, document, &config_error) ||
 		!AeronConfigFile_SetInt(*document, "version", 1, &config_error)) {
 		AeronConfigFile_Destroy(*document);
 		*document = NULL;
@@ -1100,7 +1100,7 @@ int XwaHostConfig_SaveGameDataPath(AeronVfs* vfs, const char* game_data_path, ch
 
 	if (!vfs || !game_data_path || !game_data_path[0] ||
 		strlen(game_data_path) >= XWA_HOST_CONFIG_PATH_CAPACITY) {
-		return host_config_error(error, error_size, "cannot save invalid path to %s", "config.yaml");
+		return host_config_error(error, error_size, "cannot save invalid path to %s", XWA_HOST_USER_CONFIG_FILENAME);
 	}
 	if (!host_config_prepare_user_document(vfs, &document, error, error_size)) {
 		return 0;
@@ -1317,7 +1317,7 @@ int XwaHostConfig_SaveInputOptions(AeronVfs* vfs, const XwaModernInputOptions* o
 
 	if (!vfs || !options) {
 		return host_config_error(error, error_size, "cannot save invalid input settings to %s",
-								 "config.yaml");
+								 XWA_HOST_USER_CONFIG_FILENAME);
 	}
 	if (!host_config_prepare_user_document(vfs, &document, error, error_size)) {
 		return 0;
@@ -1337,7 +1337,7 @@ int XwaHostConfig_SaveVideoOptions(AeronVfs* vfs, const XwaModernVideoOptions* o
 
 	if (!vfs || !options) {
 		return host_config_error(error, error_size, "cannot save invalid video settings to %s",
-								 "config.yaml");
+								 XWA_HOST_USER_CONFIG_FILENAME);
 	}
 	if (!host_config_prepare_user_document(vfs, &document, error, error_size)) {
 		return 0;
