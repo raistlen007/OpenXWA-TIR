@@ -130,8 +130,11 @@ models:
 effects:
   explosion_genus_emissive_strength: 2.5
   glow_mark_emissive_strength: 5.0
+# Optional, experimental cleanup for original 2D room backgrounds.
+# Disabled by default. User config.yaml can set assets.restore_original_artwork: true.
 assets:
   prefer_original_2d: false
+  restore_original_artwork: false
 presentation:
   # 1 renders at the display refresh rate; 2 renders at half refresh.
   vsync_divisor: 1
