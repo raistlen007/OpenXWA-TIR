@@ -3,7 +3,7 @@ name: CI
 on:
   workflow_dispatch:
   push:
-    branches: [main, input-gameplay, experiment/artwork-dedither]
+    branches: [main, input-gameplay]
   pull_request:
 
 concurrency:
@@ -71,8 +71,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Build only Windows Release for the experiment, avoiding redundant CI.
-        build-type: ${{ github.event_name == 'push' && github.ref != 'refs/heads/experiment/artwork-dedither' && fromJSON('["Release", "Debug"]') || fromJSON('["Release"]') }}
+        build-type: ${{ github.event_name == 'push' && fromJSON('["Release", "Debug"]') || fromJSON('["Release"]') }}
     steps:
       - name: Check out sources
         uses: actions/checkout@v7
