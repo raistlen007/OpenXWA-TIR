@@ -183,6 +183,19 @@ static int host_config_prefer_original_2d(const AeronConfigFile* config, int req
 	return 1;
 }
 
+static int host_config_restore_original_artwork(const AeronConfigFile* config, int* out,
+											 char* error, size_t error_size) {
+	const char* key = "assets.restore_original_artwork";
+	const AeronConfigNode* node = AeronConfigFile_GetNode(config, key);
+	if (!node)
+		return 1; /* Older shipped/user configs remain valid; default is off. */
+	if (AeronConfigNode_Type(node) != AERON_CONFIG_BOOL)
+		return host_config_error(error, error_size,
+			"invalid 'assets.restore_original_artwork': expected %s", "boolean");
+	*out = AeronConfigNode_Bool(node, 0);
+	return 1;
+}
+
 static int host_config_remaster_options(const AeronConfigFile* config, int required, XwaHostConfig* out,
 										char* error, size_t error_size) {
 	return host_config_model_smoothing(config, required, &out->model_smooth_angle_degrees, error,
@@ -194,7 +207,8 @@ static int host_config_remaster_options(const AeronConfigFile* config, int requi
 		   host_config_engine_emissive_strength(config, required, &out->model_engine_emissive_strength, error,
 												error_size) &&
 		   host_config_force_opt(config, required, &out->force_opt_models, error, error_size) &&
-		   host_config_prefer_original_2d(config, required, &out->prefer_original_2d, error, error_size);
+		   host_config_prefer_original_2d(config, required, &out->prefer_original_2d, error, error_size) &&
+		   host_config_restore_original_artwork(config, &out->restore_original_artwork, error, error_size);
 }
 
 static int host_config_input_options(const AeronConfigFile* config, int required, XwaModernInputOptions* out,
