@@ -1,0 +1,67 @@
+name: Manual Windows build
+
+# Fork-only helper for frequent Windows development builds.
+# Never triggered by pushes or pull requests. Builds the requested source revision.
+on:
+  workflow_dispatch:
+    inputs:
+      target_ref:
+        description: "Source branch or commit SHA in this fork"
+        required: true
+        type: string
+        default: "feature/trackir-tentative-baseline"
+      build_type:
+        description: "Windows build type"
+        required: true
+        type: choice
+        default: "Release"
+        options:
+          - Release
+          - Debug
+
+concurrency:
+  group: manual-windows-${{ github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  windows:
+    name: Windows ${{ inputs.build_type }} - ${{ inputs.target_ref }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out requested source revision
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.target_ref }}
+          submodules: recursive
+
+      - name: Identify exact source revision
+        id: sha
+        run: |
+          echo "short=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+          echo "Building source commit $(git rev-parse HEAD)"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Build Windows ZIP
+        uses: docker/build-push-action@v7
+        env:
+          DOCKER_BUILD_RECORD_UPLOAD: false
+        with:
+          context: .
+          file: packaging/windows/Dockerfile
+          platforms: linux/amd64
+          target: artifact
+          build-args: |
+            XWA_BUILD_TYPE=${{ inputs.build_type }}
+            XWA_VERSION=${{ steps.sha.outputs.short }}
+          outputs: type=local,dest=build/artifacts
+          cache-from: type=gha,scope=windows-manual
+          cache-to: type=gha,mode=max,scope=windows-manual
+
+      - name: Upload test build
+        uses: actions/upload-artifact@v7
+        with:
+          name: openxwa-windows-${{ inputs.build_type }}-${{ steps.sha.outputs.short }}
+          path: build/artifacts/*.zip
+          if-no-files-found: error

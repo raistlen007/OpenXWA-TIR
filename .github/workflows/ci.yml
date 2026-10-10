@@ -1,31 +1,45 @@
-name: CI
+name: Manual cross-platform build
 
+# Fork-only build helper. It never runs on a push or pull request.
+# Build PR branches from upstream/main so this file is excluded from upstream PRs.
 on:
-  push:
-    branches: [main]
-  pull_request:
+  workflow_dispatch:
+    inputs:
+      target_ref:
+        description: "Source branch or commit SHA in this fork"
+        required: true
+        type: string
+        default: "feature/trackir-tentative-baseline"
+      build_type:
+        description: "Build type (Windows, Linux, and macOS)"
+        required: true
+        type: choice
+        default: "Release"
+        options:
+          - Release
+          - Debug
 
 concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  group: manual-cross-platform-${{ github.run_id }}
+  cancel-in-progress: false
 
 jobs:
+
   linux:
-    name: Linux ${{ matrix.build-type }}
+    name: Linux ${{ inputs.build_type }} - ${{ inputs.target_ref }}
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        build-type: ${{ github.event_name == 'push' && fromJSON('["Release", "Debug"]') || fromJSON('["Release"]') }}
     steps:
-      - name: Check out sources
+      - name: Check out requested source revision
         uses: actions/checkout@v7
         with:
+          ref: ${{ inputs.target_ref }}
           submodules: recursive
 
-      - name: Determine short commit hash
+      - name: Identify exact source revision
         id: sha
-        run: echo "short=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+        run: |
+          echo "short=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+          echo "Building source commit $(git rev-parse HEAD)"
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
@@ -40,40 +54,39 @@ jobs:
           platforms: linux/amd64
           target: artifact
           build-args: |
-            XWA_BUILD_TYPE=${{ matrix.build-type }}
+            XWA_BUILD_TYPE=${{ inputs.build_type }}
             XWA_VERSION=${{ steps.sha.outputs.short }}
           outputs: type=local,dest=build/artifacts
-          cache-from: type=gha,scope=linux
-          cache-to: ${{ github.event_name == 'push' && 'type=gha,mode=max,scope=linux' || '' }}
+          cache-from: type=gha,scope=linux-manual
+          cache-to: type=gha,mode=max,scope=linux-manual
 
-      - name: Upload package
+      - name: Upload test build
         uses: actions/upload-artifact@v7
         with:
-          name: openxwa-linux-x86_64-${{ matrix.build-type == 'Debug' && 'debug' || 'release' }}
+          name: openxwa-linux-x86_64-${{ inputs.build_type == 'Debug' && 'debug' || 'release' }}
           path: build/artifacts/*.tar.xz
           if-no-files-found: error
 
   windows:
-    name: Windows ${{ matrix.build-type }}
+    name: Windows ${{ inputs.build_type }} - ${{ inputs.target_ref }}
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        build-type: ${{ github.event_name == 'push' && fromJSON('["Release", "Debug"]') || fromJSON('["Release"]') }}
     steps:
-      - name: Check out sources
+      - name: Check out requested source revision
         uses: actions/checkout@v7
         with:
+          ref: ${{ inputs.target_ref }}
           submodules: recursive
 
-      - name: Determine short commit hash
+      - name: Identify exact source revision
         id: sha
-        run: echo "short=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+        run: |
+          echo "short=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+          echo "Building source commit $(git rev-parse HEAD)"
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
 
-      - name: Build package
+      - name: Build Windows ZIP
         uses: docker/build-push-action@v7
         env:
           DOCKER_BUILD_RECORD_UPLOAD: false
@@ -83,35 +96,34 @@ jobs:
           platforms: linux/amd64
           target: artifact
           build-args: |
-            XWA_BUILD_TYPE=${{ matrix.build-type }}
+            XWA_BUILD_TYPE=${{ inputs.build_type }}
             XWA_VERSION=${{ steps.sha.outputs.short }}
           outputs: type=local,dest=build/artifacts
-          cache-from: type=gha,scope=windows
-          cache-to: ${{ github.event_name == 'push' && 'type=gha,mode=max,scope=windows' || '' }}
+          cache-from: type=gha,scope=windows-manual
+          cache-to: type=gha,mode=max,scope=windows-manual
 
-      - name: Upload package
+      - name: Upload test build
         uses: actions/upload-artifact@v7
         with:
-          name: openxwa-windows-x86_64-${{ matrix.build-type == 'Debug' && 'debug' || 'release' }}
+          name: openxwa-windows-${{ inputs.build_type }}-${{ steps.sha.outputs.short }}
           path: build/artifacts/*.zip
           if-no-files-found: error
 
   macos:
-    name: macOS ${{ matrix.build-type }}
+    name: macOS ${{ inputs.build_type }} - ${{ inputs.target_ref }}
     runs-on: macos-15
-    strategy:
-      fail-fast: false
-      matrix:
-        build-type: ${{ github.event_name == 'push' && fromJSON('["Release", "Debug"]') || fromJSON('["Release"]') }}
     steps:
-      - name: Check out sources
+      - name: Check out requested source revision
         uses: actions/checkout@v7
         with:
+          ref: ${{ inputs.target_ref }}
           submodules: recursive
 
-      - name: Determine short commit hash
+      - name: Identify exact source revision
         id: sha
-        run: echo "short=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+        run: |
+          echo "short=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+          echo "Building source commit $(git rev-parse HEAD)"
 
       - name: Install build tools
         run: brew install cmake ninja pkg-config
@@ -131,17 +143,17 @@ jobs:
             build/cache/macos-arm64/build/zstd
             build/cache/macos-arm64/build/ffmpeg
             build/cache/macos-arm64/build/shadercross
-          key: macos-arm64-${{ steps.runner-image.outputs.version }}-deps-${{ hashFiles('packaging/macos/build-package.sh', 'packaging/common/shadercross-fsr3.patch') }}
+          key: macos-arm64-manual-${{ steps.runner-image.outputs.version }}-deps-${{ hashFiles('packaging/macos/build-package.sh', 'packaging/common/shadercross-fsr3.patch') }}
 
       - name: Build package
         env:
-          XWA_BUILD_TYPE: ${{ matrix.build-type }}
+          XWA_BUILD_TYPE: ${{ inputs.build_type }}
           XWA_VERSION: ${{ steps.sha.outputs.short }}
         run: ./packaging/macos/build-package.sh
 
-      - name: Upload package
+      - name: Upload test build
         uses: actions/upload-artifact@v7
         with:
-          name: openxwa-macos-arm64-${{ matrix.build-type == 'Debug' && 'debug' || 'release' }}
+          name: openxwa-macos-arm64-${{ inputs.build_type == 'Debug' && 'debug' || 'release' }}
           path: build/artifacts/*.dmg
           if-no-files-found: error
