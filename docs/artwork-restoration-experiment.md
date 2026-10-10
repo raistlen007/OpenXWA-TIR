@@ -29,8 +29,8 @@ modify HD replacement artwork, text/fonts, small UI sprites or flight textures.
    `2D file 'family/familyroom': source=original`.
 4. Check `xwa.artwork` for the corresponding file/group atlas and the
    number of restored pixels. A value above zero means the renderer queued
-   changed texture pixels for upload; zero means the conservative checkerboard
-   detector found nothing to modify in that asset.
+   changed texture pixels for upload; zero means the edge-aware reconstruction found nothing to modify
+   in that asset (or no eligible opaque pixels were present).
 5. Confirm `frontend assets committed` appears after GPU submission. Capture the
    same room with the filter disabled, then enabled. Look at *identical*
    regions at 100% zoom and compare dithering, edges, details and brightness.
@@ -46,18 +46,23 @@ repository. Do not claim visual success from the unit test alone.
 
 At each room-asset load, after decoding the original CBM/BMP/DAT pixels and
 before constructing the existing RGBA runtime atlas, sufficiently large
-(>=512x320) frontend frames run through a conservative two-colour ordered
-checkerboard detector. RGB is changed only when a repeated alternating
-pattern is detected in an opaque 3x3 neighborhood. Original alpha is never
+(>=512x320) frontend frames run through a 5x5 local, color-distance weighted
+reconstruction. Both 2x2 and multilevel ordered dithering are handled. A
+color-similarity threshold excludes dissimilar neighbouring surfaces; an
+edge check protects strong lines and object boundaries. Fine texture within
+the similarity threshold can still be softened, so visual inspection of
+real assets is mandatory. Original alpha is never
 changed; the source art remains on disk, unmodified. At startup with the
 toggle off, the new code has no effect on the atlas inputs.
 
 No runtime shader, special presentation layer or additional texture lookup is
 involved. Source decoding -> CPU filtering -> `Aeron_RuntimeAtlasBuild` ->
 frontend texture lookup -> normal 2D draw is the tested route. The algorithm
-does **not** yet attempt general error-diffusion reconstruction or color
-debanding; if its pixel-change count is zero in the target artwork, a more
-appropriate detector must be developed *before* claiming improvement.
+does **not** yet perform palette reconstruction or dedicated color debanding.
+In the first iteration, an exact 3x3 checkerboard detector compiled and passed
+synthetic unit tests, yet the user's real screenshots were visually identical.
+We must test against real game artwork and require visible A/B improvement
+before declaring success.
 
 To roll back, set `restore_original_artwork: false` and restart; or
 switch back to `input-gameplay`, which does not contain this experiment.
