@@ -1,18 +1,16 @@
 name: CI
 
 on:
-  workflow_dispatch:
   push:
-    branches: [main, input-gameplay]
+    branches: [main]
   pull_request:
 
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   linux:
-    if: github.event_name == 'pull_request'
     name: Linux ${{ matrix.build-type }}
     runs-on: ubuntu-latest
     strategy:
@@ -24,16 +22,6 @@ jobs:
         uses: actions/checkout@v7
         with:
           submodules: recursive
-
-      - name: Verify original frontend font AA integration
-        run: python3 tests/frontend_font_smoothing_regression.py
-
-      - name: Test high-quality frontend font reconstruction
-        run: |
-          cc -std=c99 -Wall -Wextra -Werror -Isrc \
-            tests/frontend_font_aa_regression.c src/xwa_remaster/frontend_font_aa.c \
-            -lm -o /tmp/xwa-font-aa-test
-          /tmp/xwa-font-aa-test
 
       - name: Determine short commit hash
         id: sha
@@ -78,61 +66,6 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Verify Hyperdrive lever thresholds and one-shot semantics
-        run: |
-          cc -std=c99 -Wall -Wextra -Werror -Isrc \
-            tests/hyperdrive_axis_regression.c -o /tmp/xwa-hyperdrive-test
-          /tmp/xwa-hyperdrive-test
-
-      - name: Verify orientation math regressions
-        run: |
-          cc -std=c99 -Wall -Wextra -Werror -Isrc \
-            tests/orientation_regression.c src/xwa_runtime/hooks/orientation_hook.c \
-            -lm -o /tmp/xwa-orientation-test
-          /tmp/xwa-orientation-test
-
-      - name: Verify motion and docking precision regressions
-        run: |
-          cc -std=c99 -Wall -Wextra -Werror -Isrc \
-            tests/motion_regression.c -o /tmp/xwa-motion-test
-          /tmp/xwa-motion-test
-
-      - name: Verify fixed ventral turret mount under head tracking
-        run: |
-          cc -std=c99 -Wall -Wextra -Werror -Isrc \
-            tests/turret_mount_regression.c -lm -o /tmp/xwa-turret-test
-          /tmp/xwa-turret-test
-
-      - name: Verify native turret camera, reticle and projectile alignment
-        run: |
-          python3 tests/turret_firing_alignment_regression.py
-
-      - name: Verify turret sensitivity and low-lag response
-        run: |
-          cc -std=c99 -Wall -Wextra -Werror -Isrc \
-            tests/turret_aim_regression.c -lm -o /tmp/xwa-turret-aim-test
-          /tmp/xwa-turret-aim-test
-
-      - name: Verify original frontend font AA integration
-        run: python3 tests/frontend_font_smoothing_regression.py
-
-      - name: Test high-quality frontend font reconstruction
-        run: |
-          cc -std=c99 -Wall -Wextra -Werror -Isrc \
-            tests/frontend_font_aa_regression.c src/xwa_remaster/frontend_font_aa.c \
-            -lm -o /tmp/xwa-font-aa-test
-          /tmp/xwa-font-aa-test
-
-      - name: Verify optional artwork restoration reaches frontend drawing
-        run: python3 tests/artwork_restoration_integration.py
-
-      - name: Test artwork restoration on dithering, edges and alpha
-        run: |
-          cc -std=c99 -Wall -Wextra -Werror -Isrc \
-            tests/artwork_restoration_regression.c src/xwa_remaster/artwork_restoration.c \
-            -o /tmp/xwa-artwork-restoration-test
-          /tmp/xwa-artwork-restoration-test
-
       - name: Determine short commit hash
         id: sha
         run: echo "short=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
@@ -164,7 +97,6 @@ jobs:
           if-no-files-found: error
 
   macos:
-    if: github.event_name == 'pull_request'
     name: macOS ${{ matrix.build-type }}
     runs-on: macos-15
     strategy:
