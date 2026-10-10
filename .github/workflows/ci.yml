@@ -3,7 +3,7 @@ name: CI
 on:
   workflow_dispatch:
   push:
-    branches: [main, input-gameplay]
+    branches: [main, input-gameplay, experiment/artwork-dedither]
   pull_request:
 
 concurrency:
@@ -71,7 +71,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        build-type: ${{ github.event_name == 'push' && fromJSON('["Release", "Debug"]') || fromJSON('["Release"]') }}
+        # One release build for this experimental branch; no per-commit Debug job.
+        build-type: ${{ github.event_name == 'push' && github.ref != 'refs/heads/experiment/artwork-dedither' && fromJSON('["Release", "Debug"]') || fromJSON('["Release"]') }}
     steps:
       - name: Check out sources
         uses: actions/checkout@v7
@@ -122,6 +123,16 @@ jobs:
             tests/frontend_font_aa_regression.c src/xwa_remaster/frontend_font_aa.c \
             -lm -o /tmp/xwa-font-aa-test
           /tmp/xwa-font-aa-test
+
+      - name: Verify optional artwork restoration reaches frontend drawing
+        run: python3 tests/artwork_restoration_integration.py
+
+      - name: Test artwork restoration on dithering, edges and alpha
+        run: |
+          cc -std=c99 -Wall -Wextra -Werror -Isrc \
+            tests/artwork_restoration_regression.c src/xwa_remaster/artwork_restoration.c \
+            -o /tmp/xwa-artwork-restoration-test
+          /tmp/xwa-artwork-restoration-test
 
       - name: Determine short commit hash
         id: sha
