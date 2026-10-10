@@ -470,16 +470,17 @@ static AssetLoadStatus assets_load_remastered_group(XwaRemasterAssets* a, AeronI
 	return ASSET_LOAD_SUCCESS;
 }
 
-/* Restore only full-size original frontend illustrations, not cursors, fonts,
- * icons, buttons, flight textures or externally authored HD replacement art.
- * The atlas builder below consumes these RGBA buffers before freeing them. */
-static size_t assets_restore_large_artwork(Xwa2dFrameSet* frames) {
+/* Restore all decoded original 2D artwork frames: full-room backdrops,
+ * collectible/detail images, smaller sprites and DAT artwork, regardless
+ * of dimensions. Font atlases, 3D flight textures and optional authored HD
+ * replacements use separate paths and are left unchanged. */
+static size_t assets_restore_original_artwork(Xwa2dFrameSet* frames) {
 	size_t changed = 0;
 	if (!frames)
 		return 0;
 	for (int i = 0; i < frames->count; ++i) {
 		Xwa2dFrame* frame = &frames->frames[i];
-		if (frame->rgba && frame->width >= 512 && frame->height >= 320)
+		if (frame->rgba)
 			changed += XwaArtworkRestoration_Dedither(frame->rgba, frame->width, frame->height);
 	}
 	return changed;
@@ -499,7 +500,7 @@ static AssetLoadStatus assets_load_original_group(XwaRemasterAssets* a, AeronCom
 		return status;
 	}
 	const size_t restored = (a->restore_original_artwork && !flight)
-		? assets_restore_large_artwork(&frames) : 0;
+		? assets_restore_original_artwork(&frames) : 0;
 	AeronRuntimeAtlas* atlas = flight ? &slot->flight_original_atlas : &slot->frontend_original_atlas;
 	const int loaded = assets_build_runtime_atlas(atlas, cmd, &frames, flight,
 			"XWA original DAT group");
@@ -600,7 +601,7 @@ static AssetLoadStatus assets_load_original_file(XwaRemasterAssets* a, AeronComm
 		return status;
 	}
 	const size_t restored = a->restore_original_artwork
-		? assets_restore_large_artwork(&frames) : 0;
+		? assets_restore_original_artwork(&frames) : 0;
 	const int loaded = assets_build_runtime_atlas(&slot->original_atlas, cmd,
 			&frames, 0, slot->source_file);
 	Xwa2dFrameSet_Free(&frames);
