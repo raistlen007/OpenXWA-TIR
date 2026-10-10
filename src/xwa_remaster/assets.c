@@ -506,7 +506,7 @@ static AssetLoadStatus assets_load_original_group(XwaRemasterAssets* a, AeronCom
 	Xwa2dFrameSet_Free(&frames);
 	if (loaded) {
 		if (a->restore_original_artwork && !flight)
-			Aeron_LogInfo("xwa.artwork", "2D group %d: atlas uploaded with %zu restored pixels",
+			Aeron_LogInfo("xwa.artwork", "2D group %d: atlas built (GPU upload queued), %zu restored pixels",
 				slot->group, restored);
 		Aeron_LogInfo("xwa.remaster", "2D group %d: source=original pages=%d time_us=%llu", slot->group,
 				  atlas->layout.page_count, (unsigned long long)(Aeron_NowUs() - start_us));
@@ -606,7 +606,7 @@ static AssetLoadStatus assets_load_original_file(XwaRemasterAssets* a, AeronComm
 	Xwa2dFrameSet_Free(&frames);
 	if (loaded) {
 		if (a->restore_original_artwork)
-			Aeron_LogInfo("xwa.artwork", "2D file '%s' (%s): atlas uploaded with %zu restored pixels",
+			Aeron_LogInfo("xwa.artwork", "2D file '%s' (%s): atlas built (GPU upload queued), %zu restored pixels",
 				slot->key, slot->source_file, restored);
 		Aeron_LogInfo("xwa.remaster", "2D file '%s': source=original pages=%d time_us=%llu", slot->key,
 				  slot->original_atlas.layout.page_count, (unsigned long long)(Aeron_NowUs() - start_us));
