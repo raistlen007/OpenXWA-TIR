@@ -137,7 +137,6 @@ static ModernMapCameraStepRemainder g_modernMapCameraStepRemainders[XWA_PLAYER_C
 static ModernJoystickInputSample g_modernJoystickInputSamples[MODERN_JOYSTICK_TRACE_HISTORY_COUNT];
 static unsigned int g_modernJoystickInputSampleCursor;
 static int g_modernJoystickTraceEnabled;
-static FILE* g_modernJoystickTraceFile;
 
 int FlightDebug_JoystickTraceEnabled(void) { return g_modernJoystickTraceEnabled; }
 
@@ -147,27 +146,6 @@ void FlightDebug_SetJoystickTraceEnabled(int enabled) {
 		return;
 	}
 	g_modernJoystickTraceEnabled = enabled;
-	if (g_modernJoystickTraceFile) {
-		fclose(g_modernJoystickTraceFile);
-		g_modernJoystickTraceFile = NULL;
-	}
-	if (enabled) {
-		const char* temp_dir = getenv("TEMP");
-		char path[512];
-#if defined(_WIN32)
-		snprintf(path, sizeof path, "%s\\OpenXWA-joystick-trace.log",
-				 temp_dir && temp_dir[0] ? temp_dir : ".");
-#else
-		snprintf(path, sizeof path, "%s/OpenXWA-joystick-trace.log",
-				 temp_dir && temp_dir[0] ? temp_dir : ".");
-#endif
-		g_modernJoystickTraceFile = fopen(path, "w");
-		if (g_modernJoystickTraceFile) {
-			Aeron_LogInfo("xwa.input.trace", "JOYTRACE recording to %s", path);
-		} else {
-			Aeron_LogWarn("xwa.input.trace", "JOYTRACE could not open %s", path);
-		}
-	}
 	memset(g_modernJoystickInputSamples, 0, sizeof(g_modernJoystickInputSamples));
 	g_modernJoystickInputSampleCursor = 0;
 	Aeron_LogInfo("xwa.input.trace", "JOYTRACE state=%s", enabled ? "on" : "off");
@@ -243,24 +221,6 @@ static void FlightDebug_LogJoystickIntegration(const ModernJoystickIntegrationTr
 				  trace->smoothedRoll, trace->stepYaw, trace->stepPitch, trace->stepRoll,
 				  (unsigned int)trace->oldPitch, (unsigned int)trace->oldYaw, (unsigned int)trace->oldRoll,
 				  (unsigned int)trace->newPitch, (unsigned int)trace->newYaw, (unsigned int)trace->newRoll);
-	if (g_modernJoystickTraceFile) {
-	fprintf(g_modernJoystickTraceFile,
-				  "JOYTRACE ts=%d dt=%u joy=%d sdl=%d:%d,%d:%d,%d:%d wm=%u,%u,%u xwa=%d,%d,%d "
-				  "pk=%d,%d,%d sc_ypr=%d,%d,%d tgt_ypr=%d,%d,%d sm_ypr=%d,%d,%d step_ypr=%d,%d,%d "
-				  "ang_pyr=%u,%u,%u>%u,%u,%u",
-				  trace->timestamp, (unsigned int)trace->elapsedTicks, sample->joystickValid,
-				  sample->bridge.sourceAxisX, sample->bridge.sourceValueX, sample->bridge.sourceAxisY,
-				  sample->bridge.sourceValueY, sample->bridge.sourceAxisR, sample->bridge.sourceValueR,
-				  sample->bridge.winmmX, sample->bridge.winmmY, sample->bridge.winmmR, sample->prePackX,
-				  sample->prePackY, sample->prePackR, sample->packedX, sample->packedY, sample->packedR,
-				  trace->scaledYaw, trace->scaledPitch, trace->scaledRoll, trace->targetYaw,
-				  trace->targetPitch, trace->targetRoll, trace->smoothedYaw, trace->smoothedPitch,
-				  trace->smoothedRoll, trace->stepYaw, trace->stepPitch, trace->stepRoll,
-				  (unsigned int)trace->oldPitch, (unsigned int)trace->oldYaw, (unsigned int)trace->oldRoll,
-				  (unsigned int)trace->newPitch, (unsigned int)trace->newYaw, (unsigned int)trace->newRoll);
-		fputc('\n', g_modernJoystickTraceFile);
-		fflush(g_modernJoystickTraceFile);
-	}
 }
 
 void Flight_ModernResetHighRateIntegration(void) {

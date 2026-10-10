@@ -4,7 +4,6 @@
 #include "setup.h"
 #include "window_icon.h"
 #include "xwa/config/game_config.h"
-#include "xwa/flight/flight_debug.h"
 #include "xwa_remaster/xwa_remaster.h"
 #include "xwa_runtime/input/controller_mapping.h"
 #include "xwa_runtime/input/mouse_flight.h"
@@ -451,15 +450,6 @@ int main(int argc, char** argv) {
 				(in->key_down[AERON_KEY_LALT] || in->key_down[AERON_KEY_RALT]) &&
 				in->key_pressed[AERON_KEY_A + ('m' - 'a')]) {
 				XwaPort_ToggleMouseCapture();
-				toggled = 1;
-			}
-			/* Developer diagnostics: Ctrl+Alt+J records the full physical-to-ship
-			 * control pipeline to %%TEMP%%/OpenXWA-joystick-trace.log.
-			 * No input behavior changes unless explicitly toggled. */
-			if (in && (in->key_down[AERON_KEY_LCTRL] || in->key_down[AERON_KEY_RCTRL]) &&
-				(in->key_down[AERON_KEY_LALT] || in->key_down[AERON_KEY_RALT]) &&
-				in->key_pressed[AERON_KEY_A + ('j' - 'a')]) {
-				FlightDebug_SetJoystickTraceEnabled(!FlightDebug_JoystickTraceEnabled());
 				toggled = 1;
 			}
 			XwaRemaster_BeginFrame(in);
