@@ -805,7 +805,8 @@ static int host_config_head_tracking(const AeronConfigFile* config, int required
 			head->source = XWA_HEAD_TRACK_SOURCE_OPENTRACK_UDP;
 		} else {
 			return host_config_error(error, error_size,
-				"invalid head tracking source: expected 'trackir' or 'opentrack_udp'");
+				"invalid head tracking source: expected %s",
+				"'trackir' or 'opentrack_udp'");
 		}
 	}
 	for (axis = 0; axis < XWA_HEAD_TRACK_AXIS_COUNT; ++axis) {
