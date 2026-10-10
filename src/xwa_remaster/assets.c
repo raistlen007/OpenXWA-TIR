@@ -5,6 +5,7 @@
  */
 
 #include "xwa_remaster/assets.h"
+#include "xwa_remaster/frontend_font_aa.h"
 
 #include "aeron/aeron.h"
 #include "aeron/image.h"
@@ -908,7 +909,7 @@ static AeronFontGlyph* assets_copy_font_glyphs(const Xwa2dFontAtlas* source, int
 }
 
 static int assets_init_original_font(AeronCommandBuffer* cmd,
-		const Xwa2dFontAtlas* font, int atlas_scale, int generate_mips,
+		const Xwa2dFontAtlas* font, int atlas_scale, int generate_mips, int frontend_aa,
 		const char* debug_name, AeronFontAtlas* out) {
 	if (!cmd || !font || !out || atlas_scale <= 0 || font->cell_width <= 0 ||
 		font->cell_height <= 0 || font->baseline < 0 ||
@@ -918,9 +919,12 @@ static int assets_init_original_font(AeronCommandBuffer* cmd,
 		return 0;
 	AeronFontGlyph* glyphs = assets_copy_font_glyphs(font, atlas_scale);
 	int atlas_width = 0, atlas_height = 0;
-	uint8_t* atlas_rgba = glyphs ? Aeron_ImageUpscaleNearestRgba8(font->rgba, font->width, font->height,
-														  atlas_scale, &atlas_width, &atlas_height)
-								 : NULL;
+	uint8_t* atlas_rgba = glyphs ? (frontend_aa
+			? XwaFrontendFontAA_Upscale(font->rgba, font->width, font->height,
+										atlas_scale, &atlas_width, &atlas_height)
+			: Aeron_ImageUpscaleNearestRgba8(font->rgba, font->width, font->height,
+														   atlas_scale, &atlas_width, &atlas_height))
+		: NULL;
 	const int initialized = atlas_rgba && AeronFontAtlas_InitRgba8(
 			out, cmd,
 			&(AeronFontAtlasRgba8Desc) {
@@ -965,7 +969,7 @@ static AssetLoadStatus assets_load_original_flight_font(XwaRemasterAssets* a, Ae
 		return ASSET_LOAD_FAILED;
 	}
 	Xwa2dFrameSet_Free(&group);
-	if (!assets_init_original_font(cmd, &font, XWA_ORIGINAL_FONT_SCALE, 1,
+	if (!assets_init_original_font(cmd, &font, XWA_ORIGINAL_FONT_SCALE, 1, 0,
 			"XWA original flight font", &slot->atlas)) {
 		Xwa2dFontAtlas_Free(&font);
 		return ASSET_LOAD_FAILED;
@@ -1068,7 +1072,7 @@ static AssetLoadStatus assets_load_original_frontend_font(XwaRemasterAssets* a,
 			Aeron_LogWarn("xwa.remaster", "frontend font %d: original load failed: %s", font_size, error);
 		return status;
 	}
-	if (!assets_init_original_font(cmd, &font, XWA_ORIGINAL_FONT_SCALE, 0,
+	if (!assets_init_original_font(cmd, &font, XWA_ORIGINAL_FONT_SCALE, 0, 1,
 			"XWA original frontend font", &slot->atlas)) {
 		Xwa2dFontAtlas_Free(&font);
 		return ASSET_LOAD_FAILED;
