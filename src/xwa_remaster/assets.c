@@ -6,6 +6,7 @@
 
 #include "xwa_remaster/assets.h"
 #include "xwa_remaster/frontend_font_aa.h"
+#include "xwa_remaster/artwork_restoration.h"
 
 #include "aeron/aeron.h"
 #include "aeron/image.h"
@@ -94,6 +95,7 @@ typedef struct GroupSlot {
 struct XwaRemasterAssets {
 	char root[512];
 	int prefer_original_2d;
+	int restore_original_artwork;
 	XwaRemasterOriginal2d* original_reader;
 	AeronImageCache* frontend_images;
 	AeronImageCache* flight_images;
@@ -110,13 +112,15 @@ struct XwaRemasterAssets {
 	uint32_t generation;
 };
 
-XwaRemasterAssets* XwaRemasterAssets_Create(const char* root, int prefer_original_2d) {
+XwaRemasterAssets* XwaRemasterAssets_Create(const char* root, int prefer_original_2d,
+		int restore_original_artwork) {
 	XwaRemasterAssets* a = (XwaRemasterAssets*)calloc(1, sizeof *a);
 	if (!a) {
 		return NULL;
 	}
 	snprintf(a->root, sizeof a->root, "%s", root ? root : "");
 	a->prefer_original_2d = prefer_original_2d != 0;
+	a->restore_original_artwork = restore_original_artwork != 0;
 	a->original_reader = XwaRemasterOriginal2d_Create(Aeron_GetVfs());
 	a->frontend_images = Aeron_ImageCacheCreate();
 	a->flight_images = Aeron_ImageCacheCreate();
@@ -135,6 +139,8 @@ XwaRemasterAssets* XwaRemasterAssets_Create(const char* root, int prefer_origina
 	Aeron_LogInfo("xwa.remaster", "2D asset policy: prefer=%s alternate=%s",
 			  a->prefer_original_2d ? "original" : "remastered",
 			  a->prefer_original_2d ? "remastered" : "original");
+	Aeron_LogInfo("xwa.artwork", "Original frontend background dedithering: %s",
+			a->restore_original_artwork ? "enabled" : "disabled");
 	return a;
 }
 
@@ -464,6 +470,21 @@ static AssetLoadStatus assets_load_remastered_group(XwaRemasterAssets* a, AeronI
 	return ASSET_LOAD_SUCCESS;
 }
 
+/* Restore only full-size original frontend illustrations, not cursors, fonts,
+ * icons, buttons, flight textures or externally authored HD replacement art.
+ * The atlas builder below consumes these RGBA buffers before freeing them. */
+static size_t assets_restore_large_artwork(Xwa2dFrameSet* frames) {
+	size_t changed = 0;
+	if (!frames)
+		return 0;
+	for (int i = 0; i < frames->count; ++i) {
+		Xwa2dFrame* frame = &frames->frames[i];
+		if (frame->rgba && frame->width >= 512 && frame->height >= 320)
+			changed += XwaArtworkRestoration_Dedither(frame->rgba, frame->width, frame->height);
+	}
+	return changed;
+}
+
 static AssetLoadStatus assets_load_original_group(XwaRemasterAssets* a, AeronCommandBuffer* cmd,
 												  GroupSlot* slot, int flight) {
 	Xwa2dFrameSet frames = { 0 };
@@ -477,11 +498,16 @@ static AssetLoadStatus assets_load_original_group(XwaRemasterAssets* a, AeronCom
 			Aeron_LogWarn("xwa.remaster", "2D group %d: original load failed: %s", slot->group, error);
 		return status;
 	}
+	const size_t restored = (a->restore_original_artwork && !flight)
+		? assets_restore_large_artwork(&frames) : 0;
 	AeronRuntimeAtlas* atlas = flight ? &slot->flight_original_atlas : &slot->frontend_original_atlas;
 	const int loaded = assets_build_runtime_atlas(atlas, cmd, &frames, flight,
 			"XWA original DAT group");
 	Xwa2dFrameSet_Free(&frames);
 	if (loaded) {
+		if (a->restore_original_artwork && !flight)
+			Aeron_LogInfo("xwa.artwork", "2D group %d: atlas uploaded with %zu restored pixels",
+				slot->group, restored);
 		Aeron_LogInfo("xwa.remaster", "2D group %d: source=original pages=%d time_us=%llu", slot->group,
 				  atlas->layout.page_count, (unsigned long long)(Aeron_NowUs() - start_us));
 	}
@@ -573,10 +599,15 @@ static AssetLoadStatus assets_load_original_file(XwaRemasterAssets* a, AeronComm
 			Aeron_LogWarn("xwa.remaster", "2D file '%s': original load failed: %s", slot->key, error);
 		return status;
 	}
+	const size_t restored = a->restore_original_artwork
+		? assets_restore_large_artwork(&frames) : 0;
 	const int loaded = assets_build_runtime_atlas(&slot->original_atlas, cmd,
 			&frames, 0, slot->source_file);
 	Xwa2dFrameSet_Free(&frames);
 	if (loaded) {
+		if (a->restore_original_artwork)
+			Aeron_LogInfo("xwa.artwork", "2D file '%s' (%s): atlas uploaded with %zu restored pixels",
+				slot->key, slot->source_file, restored);
 		Aeron_LogInfo("xwa.remaster", "2D file '%s': source=original pages=%d time_us=%llu", slot->key,
 				  slot->original_atlas.layout.page_count, (unsigned long long)(Aeron_NowUs() - start_us));
 	}
