@@ -8,6 +8,7 @@
  */
 
 #include "xwa_runtime/snapshot/snapshot.h"
+#include "xwa_runtime/input/trackir.h"
 #include "xwa_runtime/snapshot/snapshot_flight_map.h"
 #include "xwa_runtime/snapshot/snapshot_hud.h"
 
@@ -34,6 +35,7 @@
 #include "xwa/render/renderer.h"
 #include "xwa/util/time.h"
 
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -1383,6 +1385,14 @@ void XwaSnapshot_CaptureFlight(void) {
 	c->world_pos[0] = vs->savedTargetX;
 	c->world_pos[1] = vs->savedTargetY;
 	c->world_pos[2] = vs->savedTargetZ;
+	/* Classic camera coordinates are quantized in whole OPT units (about
+	 * 2.44 cm per unit). Recover the remainder of the real head movement
+	 * for the floating-point renderer without touching mission state. */
+	float trackir_world_offset[3] = {0};
+	XwaTrackIR_GetCameraOffset(trackir_world_offset);
+	for (int axis = 0; axis < 3; ++axis) {
+		c->head_subunit_offset[axis] = trackir_world_offset[axis] - roundf(trackir_world_offset[axis]);
+	}
 	FVIEW_CopyRenderCameraRows(c->rows);
 	c->view_pitch = vs->viewPitch;
 	c->view_yaw = vs->viewYaw;
@@ -1490,6 +1500,7 @@ void XwaSnapshot_CaptureFlight(void) {
 			k->camera_pan[0] = (float)vs->cameraPanDeltaX;
 			k->camera_pan[1] = (float)vs->cameraPanDeltaY;
 			k->camera_pan[2] = (float)vs->cameraPanDeltaZ;
+			XwaTrackIR_GetCameraOffset(k->trackir_head_offset);
 			const char* name = XwaSnapshotExport_OptHandleName(handle);
 			if (name != NULL) {
 				snprintf(k->model_name, sizeof k->model_name, "%s", name);

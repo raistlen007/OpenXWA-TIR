@@ -447,7 +447,10 @@ typedef struct XwaFlightMapState {
 /* Flight camera, captured with the objects. `rows` are the active modern
  * render camera's world->eye basis rows in R0, R1, R2 storage order. */
 typedef struct XwaFlightCamera {
-	int32_t world_pos[3]; /* viewState.savedTarget* (camera anchor) */
+	int32_t world_pos[3]; /* integer camera anchor, used by classic culling */
+	/* Residual subunit observer displacement after legacy integer rounding.
+	 * The remaster adds this to the local camera position for smooth 6DOF. */
+	float head_subunit_offset[3];
 	float rows[9];
 	uint16_t view_pitch, view_yaw, view_roll, view_angle_d;
 	int32_t focus_obj_idx;
@@ -568,6 +571,7 @@ typedef struct XwaCockpit {
 	int16_t aim_angle_b;
 	float hardpoint_world[3]; /* seat eye hardpoint (player.hardpointWorld*) */
 	float camera_pan[3];      /* viewState.cameraPanDelta* (classic scales by 1/16) */
+	float trackir_head_offset[3]; /* transient eye displacement, world/OPT units */
 	/* Weapon hardpoint in the player CRAFT's model space
 	 * (player.hardpointLocal*) — the classic anchors the weapon-fire
 	 * pulse point lights here. */
@@ -867,6 +871,10 @@ typedef struct XwaHudReticle {
 	int16_t look_yaw, look_pitch;
 	uint8_t seat;
 	uint8_t turret_auto_fire;
+	/* Transient direction of the turret boresight, before TrackIR rotates
+	 * the observer. Used only to draw the reticle in a turret seat. */
+	uint8_t turret_aim_valid;
+	float turret_aim_world[3];
 	/* Mouse flight virtual-stick marker (position mode): held deflection in
 	 * [-127, 127], drawn by the HD HUD relative to the reticle center. */
 	uint8_t stick_marker;
