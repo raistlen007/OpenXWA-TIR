@@ -148,6 +148,12 @@ static void XwaModernInputOptions_Normalize(XwaModernInputOptions* options) {
 	options->controller.roll_enabled = options->controller.roll_enabled != 0;
 	options->controller.rumble_enabled = options->controller.rumble_enabled != 0;
 	options->head_tracking.enabled = options->head_tracking.enabled != 0;
+#ifndef _WIN32
+	/* The shipped defaults name native TrackIR for Windows. On other hosts,
+	 * normalize the effective selection to the only available UDP provider,
+	 * even when the user enables tracking without opening the settings menu. */
+	options->head_tracking.source = XWA_HEAD_TRACK_SOURCE_OPENTRACK_UDP;
+#endif
 	for (i = 0; i < XWA_HEAD_TRACK_AXIS_COUNT; ++i) {
 		options->head_tracking.invert[i] = options->head_tracking.invert[i] != 0;
 	}
