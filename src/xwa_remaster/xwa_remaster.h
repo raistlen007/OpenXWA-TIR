@@ -30,6 +30,7 @@ typedef struct XwaRemasterInitOptions {
 	float engine_emissive_strength;
 	int force_opt_models;
 	int prefer_original_2d;
+	int restore_original_artwork;
 	XwaModernVideoOptions video_options;
 	unsigned int video_options_override_mask;
 } XwaRemasterInitOptions;
