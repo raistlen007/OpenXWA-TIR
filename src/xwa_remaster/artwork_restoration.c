@@ -1,93 +1,78 @@
 #include "xwa_remaster/artwork_restoration.h"
 
 #include <stdint.h>
-#include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
 
-/* Edge-aware reconstruction of ordered and irregular colour dithering.
- * Use an immutable source to avoid repeated blur. The colour similarity
- * threshold keeps foreground silhouettes and panel edges distinct.
- * No GPU shader or per-frame cost: this runs only when an original 2D
- * illustration is decoded, before constructing its existing GPU atlas. */
+/* Reconstruct only alternating/isolated dither samples. Unlike bilateral blur,
+ * this has no effect on smooth gradients or ordinary continuous shading.
+ * Both horizontal and vertical neighbours must agree with each other but
+ * differ from the center: the characteristic high-frequency dither pattern.
+ * The immutable source prevents multiple smoothing passes during traversal. */
 size_t XwaArtworkRestoration_Dedither(uint8_t* rgba, int width, int height) {
-	if (!rgba || width < 256 || height < 160 ||
+	if (!rgba || width < 3 || height < 3 ||
 		(size_t)width > SIZE_MAX / (size_t)height / 4u)
 		return 0;
-
 	const size_t bytes = (size_t)width * (size_t)height * 4u;
-	uint8_t* source = (uint8_t*)malloc(bytes);
-	if (!source)
-		return 0; /* Fail safe to the untouched source artwork. */
-	memcpy(source, rgba, bytes);
+	uint8_t* original = (uint8_t*)malloc(bytes);
+	if (!original)
+		return 0;
+	memcpy(original, rgba, bytes);
 
-	static const int spatial[5] = { 1, 4, 6, 4, 1 };
-	const int similarity_limit = 32;
 	size_t changed = 0;
-
-	for (int y = 2; y < height - 2; ++y) {
-		for (int x = 2; x < width - 2; ++x) {
-			const size_t index = ((size_t)y * (size_t)width + (size_t)x) * 4u;
-			const uint8_t* center = source + index;
-			if (center[3] != 255u)
+	const size_t pitch = (size_t)width * 4u;
+	for (int y = 1; y < height - 1; ++y) {
+		for (int x = 1; x < width - 1; ++x) {
+			const size_t at = (size_t)y * pitch + (size_t)x * 4u;
+			const uint8_t* const center = original + at;
+			const uint8_t* const left = center - 4u;
+			const uint8_t* const right = center + 4u;
+			const uint8_t* const up = center - pitch;
+			const uint8_t* const down = center + pitch;
+			if (center[3] != 255u || left[3] != 255u || right[3] != 255u ||
+				up[3] != 255u || down[3] != 255u)
 				continue;
 
-			/* Keep high-contrast horizontal and vertical edges sharp. */
-			const uint8_t* left = center - 4u;
-			const uint8_t* right = center + 4u;
-			const uint8_t* up = center - (size_t)width * 4u;
-			const uint8_t* down = center + (size_t)width * 4u;
-			int large_edge = 0;
+			int horizontal_difference = 0;
+			int vertical_difference = 0;
+			int horizontal_contrast = 0;
+			int vertical_contrast = 0;
 			for (int c = 0; c < 3; ++c) {
-				const int dx = (int)left[c] - (int)right[c];
-				const int dy = (int)up[c] - (int)down[c];
-				if (dx > 40 || dx < -40 || dy > 40 || dy < -40)
-					large_edge = 1;
+				int d = (int)left[c] - (int)right[c];
+				if (d < 0) d = -d;
+				if (d > horizontal_difference) horizontal_difference = d;
+				d = (int)up[c] - (int)down[c];
+				if (d < 0) d = -d;
+				if (d > vertical_difference) vertical_difference = d;
+				d = (int)center[c] * 2 - (int)left[c] - (int)right[c];
+				if (d < 0) d = -d;
+				if (d > horizontal_contrast) horizontal_contrast = d;
+				d = (int)center[c] * 2 - (int)up[c] - (int)down[c];
+				if (d < 0) d = -d;
+				if (d > vertical_contrast) vertical_contrast = d;
 			}
-			if (large_edge)
+			/* A plain gradient has diverging opposite neighbours, so it is
+			 * unchanged. Avoid strong lines and distinct surface colors. */
+			if (horizontal_difference > 9 || vertical_difference > 9 ||
+				horizontal_contrast < 10 || horizontal_contrast > 64 ||
+				vertical_contrast < 10 || vertical_contrast > 64)
 				continue;
 
-			/* Weighted local colour reconstruction. Unlike an exact 3x3
-			 * checker detector, this also handles 4x4 multi-level Bayer
-			 * patterns and gently irregular dithering. Pixels unlike the
-			 * center are excluded, so hard boundaries cannot bleed through. */
-			uint64_t sum[3] = { 0, 0, 0 };
-			uint64_t total_weight = 0;
-			for (int dy = -2; dy <= 2; ++dy) {
-				for (int dx = -2; dx <= 2; ++dx) {
-					const uint8_t* pixel = source +
-						((size_t)(y + dy) * (size_t)width + (size_t)(x + dx)) * 4u;
-					if (pixel[3] != 255u)
-						continue;
-					int contrast = 0;
-					for (int c = 0; c < 3; ++c) {
-						int d = (int)pixel[c] - (int)center[c];
-						if (d < 0)
-							d = -d;
-						if (d > contrast)
-							contrast = d;
-					}
-					if (contrast >= similarity_limit)
-						continue;
-					const uint64_t weight = (uint64_t)spatial[dy + 2] *
-						(uint64_t)spatial[dx + 2] * (uint64_t)(similarity_limit - contrast);
-					for (int c = 0; c < 3; ++c)
-						sum[c] += weight * pixel[c];
-					total_weight += weight;
-				}
-			}
-			if (!total_weight)
-				continue;
-			uint8_t* output = rgba + index;
+			uint8_t* const dest = rgba + at;
 			int modified = 0;
 			for (int c = 0; c < 3; ++c) {
-				const uint8_t value = (uint8_t)((sum[c] + total_weight / 2) / total_weight);
-				modified |= output[c] != value;
-				output[c] = value;
+				const int adjacent = (int)left[c] + (int)right[c] +
+									 (int)up[c] + (int)down[c];
+				/* 75% interpolation toward the neighbour consensus.
+				 * RGB can never bleed into alpha or transparency. */
+				const uint8_t value = (uint8_t)((4 * (int)center[c] +
+												 3 * adjacent + 8) / 16);
+				modified |= dest[c] != value;
+				dest[c] = value;
 			}
 			changed += (size_t)modified;
 		}
 	}
-	free(source);
+	free(original);
 	return changed;
 }
