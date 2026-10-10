@@ -36,6 +36,7 @@
 #include "xwa/math/trig2.h"
 #ifdef XWA_MODERN
 #include "xwa_runtime/snapshot/snapshot_hud.h"
+#include "xwa_runtime/input/trackir.h"
 #endif
 #include "xwa/render/effects.h"
 #include "xwa/render/renderer_internal.h"
@@ -6869,6 +6870,18 @@ void Hud_DrawReticle3D(void) {
 	uint8_t inRange;
 	uint16_t lockRange;
 	unsigned int lockRangeDivisor;
+#ifdef XWA_MODERN
+	int16_t effectiveLookYaw = g_players[g_localPlayer].lookYawOffset;
+	int16_t effectiveLookPitch = g_players[g_localPlayer].lookPitchOffset;
+	XwaTrackIRPose head;
+	if (XwaTrackIR_CurrentPose(&head)) {
+		effectiveLookYaw = (int16_t)(effectiveLookYaw + head.yaw_q16);
+		effectiveLookPitch = (int16_t)(effectiveLookPitch + head.pitch_q16);
+	}
+#else
+	const int16_t effectiveLookYaw = g_players[g_localPlayer].lookYawOffset;
+	const int16_t effectiveLookPitch = g_players[g_localPlayer].lookPitchOffset;
+#endif
 
 	g_reticleDrawX = g_reticleCenterX;
 	g_reticleDrawY = g_reticleCenterY;
@@ -6907,22 +6920,35 @@ void Hud_DrawReticle3D(void) {
 	lockRange = modelIndex == missileBoatModelIndex ? 354 : 708;
 	lockRangeDivisor = lockRange / 200;
 
-	if (Hud_AbsLookDegreesFromOffset(g_players[g_localPlayer].lookYawOffset) >= 45 ||
-		Hud_AbsLookDegreesFromOffset(g_players[g_localPlayer].lookPitchOffset) >= 45) {
+	if (Hud_AbsLookDegreesFromOffset(effectiveLookYaw) >= 45 ||
+		Hud_AbsLookDegreesFromOffset(effectiveLookPitch) >= 45) {
 		return;
 	}
 
-	if (g_players[g_localPlayer].lookYawOffset || g_players[g_localPlayer].lookPitchOffset) {
+	if (effectiveLookYaw || effectiveLookPitch) {
 		int worldZ;
-
-		pai_RotateLocalVectorToWorldScratch(&g_objectTable[g_players[g_localPlayer].objectIndex], 0, 0,
+#ifdef XWA_MODERN
+		float turretAim[3];
+		/* The reticle is locked to where the TURRET aims, not the ship's
+		 * flight axis. A head turn changes the observer, not the gun bore.
+		 * Project a point far along the pre-head-look turret direction. */
+		if (g_players[g_localPlayer].currentSeatIdx > 0 &&
+			XwaTrackIR_GetTurretAimDirection(turretAim)) {
+			g_camRelWorldX = (int)lroundf(turretAim[0] * 1000000.0f);
+			g_camRelWorldY = (int)lroundf(turretAim[1] * 1000000.0f);
+			g_camRelWorldZ = (int)lroundf(turretAim[2] * 1000000.0f);
+		} else
+#endif
+		{
+			pai_RotateLocalVectorToWorldScratch(&g_objectTable[g_players[g_localPlayer].objectIndex], 0, 0,
 											1000000);
-		g_camRelWorldX = g_objectTable[g_players[g_localPlayer].objectIndex].world_x + g_rotatedX;
-		g_camRelWorldY = g_objectTable[g_players[g_localPlayer].objectIndex].world_y + g_rotatedY;
-		worldZ = g_objectTable[g_players[g_localPlayer].objectIndex].world_z + g_rotatedZ;
-		g_camRelWorldX -= g_players[g_localPlayer].viewState.savedTargetX;
-		g_camRelWorldY -= g_players[g_localPlayer].viewState.savedTargetY;
-		g_camRelWorldZ = worldZ - g_players[g_localPlayer].viewState.savedTargetZ;
+			g_camRelWorldX = g_objectTable[g_players[g_localPlayer].objectIndex].world_x + g_rotatedX;
+			g_camRelWorldY = g_objectTable[g_players[g_localPlayer].objectIndex].world_y + g_rotatedY;
+			worldZ = g_objectTable[g_players[g_localPlayer].objectIndex].world_z + g_rotatedZ;
+			g_camRelWorldX -= g_players[g_localPlayer].viewState.savedTargetX;
+			g_camRelWorldY -= g_players[g_localPlayer].viewState.savedTargetY;
+			g_camRelWorldZ = worldZ - g_players[g_localPlayer].viewState.savedTargetZ;
+		}
 		viewX = TRANSFM2_CamMatDotRow0(g_camRelWorldX, g_camRelWorldY, g_camRelWorldZ);
 		viewY = TRANSFM2_CamMatDotRow1(g_camRelWorldX, g_camRelWorldY, g_camRelWorldZ);
 		viewZ = TRANSFM2_CamMatDotRow2(g_camRelWorldX, g_camRelWorldY, g_camRelWorldZ);
@@ -6973,7 +6999,7 @@ void Hud_DrawReticle3D(void) {
 					}
 				}
 
-				if (g_players[g_localPlayer].lookYawOffset || g_players[g_localPlayer].lookPitchOffset) {
+				if (effectiveLookYaw || effectiveLookPitch) {
 					int aimX;
 					int drawX;
 
@@ -7055,7 +7081,7 @@ void Hud_DrawReticle3D(void) {
 
 	quad.screenX = g_reticleCenterX;
 	quad.screenY = g_screenHeight - g_reticleCenterY;
-	if (g_players[g_localPlayer].lookYawOffset || g_players[g_localPlayer].lookPitchOffset) {
+	if (effectiveLookYaw || effectiveLookPitch) {
 		quad.screenX = g_reticleDrawX;
 		quad.screenY = g_screenHeight - g_reticleDrawY;
 	}

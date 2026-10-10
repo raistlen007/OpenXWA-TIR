@@ -1,3 +1,4 @@
+#include "xwa_runtime/input/trackir.h"
 #include "xwa_runtime/snapshot/snapshot_hud.h"
 
 #include "xwa/assets/flight_model.h"
@@ -454,7 +455,19 @@ static void hud_capture_direct_state(XwaHudState* out) {
 	out->reticle.missile_lock_state = player->missileLockState;
 	out->reticle.look_yaw = player->lookYawOffset;
 	out->reticle.look_pitch = player->lookPitchOffset;
+	/* The HD reticle must use the same effective look direction as the 3D
+	 * camera, without persisting hardware input in the simulation state. */
+	XwaTrackIRPose head;
+	if (XwaTrackIR_CurrentPose(&head)) {
+		out->reticle.look_yaw = (int16_t)(out->reticle.look_yaw + head.yaw_q16);
+		out->reticle.look_pitch = (int16_t)(out->reticle.look_pitch + head.pitch_q16);
+	}
 	out->reticle.seat = (uint8_t)player->currentSeatIdx;
+	out->reticle.turret_aim_valid = 0;
+	if (player->currentSeatIdx > 0) {
+		out->reticle.turret_aim_valid = (uint8_t)XwaTrackIR_GetTurretAimDirection(
+			out->reticle.turret_aim_world);
+	}
 	out->reticle.stick_marker = 0;
 	if (!g_padlockMouseLookEnabled) {
 		int stick_marker_x;

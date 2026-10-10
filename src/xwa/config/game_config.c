@@ -36,6 +36,7 @@
 
 #ifdef XWA_MODERN
 #include "xwa_runtime/config/modern_controller_options_screen.h"
+#include "xwa_runtime/config/modern_head_tracking_screen.h"
 #include "xwa_runtime/config/modern_input_options.h"
 #include "xwa_runtime/config/modern_input_options_screen.h"
 #include "xwa_runtime/config/modern_pilot_profiles_screen.h"
@@ -911,6 +912,10 @@ int Config_ControllerOptionsScreen(void) {
 			break;
 		case 2:
 			g_pendingMenuScreen = 20;
+			g_menuCursorRow = 0;
+			break;
+		case 3:
+			g_pendingMenuScreen = 23;
 			g_menuCursorRow = 0;
 			break;
 		default:
@@ -2562,6 +2567,13 @@ int Config_OptionsDatapadUpdate(int frameState) {
 			if (XwaModernControllerButtonsScreen_Update(g_configMenuCenterX, &g_menuCursorRow)) {
 				g_pendingMenuScreen = 20;
 				g_menuCursorRow = 6;
+			}
+			done = 0;
+			break;
+		case 23:
+			if (XwaModernHeadTrackingScreen_Update(g_configMenuCenterX, &g_menuCursorRow)) {
+				g_pendingMenuScreen = 4;
+				g_menuCursorRow = 5;
 			}
 			done = 0;
 			break;

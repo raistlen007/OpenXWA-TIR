@@ -1531,6 +1531,12 @@ static int fl_build_view_at_origin(const XwaFlightCamera* cam, const int32_t ori
 
 	memcpy(out->origin_world, origin_world, sizeof out->origin_world);
 	AeronWorld_LocalI32(origin_world, cam->world_pos, scene_camera->pos);
+	/* Preserve motion smaller than a legacy OPT unit (roughly 2.44 cm).
+	 * Classic culling sees the rounded camera; the HD scene gets continuous
+	 * head translation without added tracking-filter latency. */
+	for (int axis = 0; axis < 3; ++axis) {
+		scene_camera->pos[axis] += cam->head_subunit_offset[axis];
+	}
 	scene_camera->v_half_rad = atanf(hh / ps);
 	const float aspect = (float)target_w / (float)target_h;
 	scene_camera->h_half_rad = atanf(tanf(scene_camera->v_half_rad) * aspect);
@@ -1896,6 +1902,8 @@ static int fl_temporal_pose_changed(const XwaSnapshot* current, const XwaSnapsho
 	const XwaFlightCamera* cam = &current->flight_camera;
 	const XwaFlightCamera* prev_cam = &previous->flight_camera;
 	if (memcmp(cam->world_pos, prev_cam->world_pos, sizeof cam->world_pos) != 0 ||
+		memcmp(cam->head_subunit_offset, prev_cam->head_subunit_offset,
+			   sizeof cam->head_subunit_offset) != 0 ||
 		memcmp(cam->rows, prev_cam->rows, sizeof cam->rows) != 0 || cam->proj_scale != prev_cam->proj_scale ||
 		cam->vp_w != prev_cam->vp_w || cam->vp_h != prev_cam->vp_h ||
 		cam->vp_center_x != prev_cam->vp_center_x || cam->vp_center_y != prev_cam->vp_center_y ||
@@ -1911,7 +1919,9 @@ static int fl_temporal_pose_changed(const XwaSnapshot* current, const XwaSnapsho
 		   cockpit->aim_angle_b != prev_cockpit->aim_angle_b ||
 		   memcmp(cockpit->hardpoint_world, prev_cockpit->hardpoint_world, sizeof cockpit->hardpoint_world) !=
 			   0 ||
-		   memcmp(cockpit->camera_pan, prev_cockpit->camera_pan, sizeof cockpit->camera_pan) != 0;
+		   memcmp(cockpit->camera_pan, prev_cockpit->camera_pan, sizeof cockpit->camera_pan) != 0 ||
+		   memcmp(cockpit->trackir_head_offset, prev_cockpit->trackir_head_offset,
+				  sizeof cockpit->trackir_head_offset) != 0;
 }
 
 /* The F5 renderer rotates a ventral turret cockpit about the native
@@ -1936,7 +1946,8 @@ static void fl_apply_classic_ventral_pivot(float basis[9],
 			basis[axis] * cockpit->hardpoint_local[0] +
 			basis[3 + axis] * cockpit->hardpoint_local[1] +
 			basis[6 + axis] * cockpit->hardpoint_local[2];
-		const float craft_origin = camera_local[axis] -
+		/* Keep the classic ventral hardpoint fixed when the observer leans. */
+		const float craft_origin = camera_local[axis] - cockpit->trackir_head_offset[axis] -
 			cockpit->hardpoint_world[axis] - cockpit->camera_pan[axis] * 0.0625f;
 		position[axis] = craft_origin + cockpit->hardpoint_world[axis] - rotated_pivot;
 	}
@@ -2004,7 +2015,10 @@ static int fl_cockpit_model_matrix(const XwaCockpit* cockpit, const XwaFlightObj
 
 	float position[3];
 	for (int axis = 0; axis < 3; ++axis) {
-		position[axis] = camera_local[axis] + camera_rows[0 * 3 + axis] * delta[0] +
+		/* Camera motion is observer-only. The cockpit is anchored to the ship,
+		 * so remove the head displacement before constructing its world pose. */
+		position[axis] = camera_local[axis] - cockpit->trackir_head_offset[axis] +
+						 camera_rows[0 * 3 + axis] * delta[0] +
 						 camera_rows[1 * 3 + axis] * delta[1] + camera_rows[2 * 3 + axis] * delta[2];
 	}
 	fl_model_matrix(basis, position, out);
@@ -3248,7 +3262,11 @@ static void fl_submit_hyperspace_cockpit(AeronCommandBuffer* cmd, XwaRemasterAss
 	}
 	float pw[3];
 	for (int j = 0; j < 3; j++) {
-		pw[j] = s.camera_local[j] + s.crows[0 * 3 + j] * delta[0] + s.crows[1 * 3 + j] * delta[1] +
+		/* Head motion changes the observer, not the hyperspace cockpit.
+		 * As in normal flight, keep the cockpit anchored at the untracked
+		 * eye origin while the rendered camera translates around it. */
+		pw[j] = s.camera_local[j] - snap->cockpit.trackir_head_offset[j] +
+				s.crows[0 * 3 + j] * delta[0] + s.crows[1 * 3 + j] * delta[1] +
 				s.crows[2 * 3 + j] * delta[2];
 	}
 	/* F5/classic pivots the two affected lower cockpits around the native
