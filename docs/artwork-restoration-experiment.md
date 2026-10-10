@@ -21,6 +21,31 @@ Removing the restoration key also disables it if the shipped default remains fal
 authored replacement KTX2 happens to exist. The filter deliberately does *not*
 modify HD replacement artwork, text/fonts, small UI sprites or flight textures.
 
+## Verification on the actual original game artwork (2026-10-10)
+
+The original `FRONTRES/FAMILY/FAMILYROOM.CBM` supplied separately by the
+tester (not checked into GitHub) was decoded using the same indexed/RLE
+structure as `Xwa2d_DecodeCbm`: one 640x480 RGBA frame, 252 distinct decoded
+RGBA colours, with transparent pixels retained.
+
+The revised C filter was run against that complete image with
+AddressSanitizer/UndefinedBehaviorSanitizer enabled. It changed
+262,939 / 307,200 pixels (85.59%), while preserving every alpha byte.
+Average absolute RGB difference was 2.14/255 (maximum 14/255 per channel).
+Strong edges (>=60/255 original neighbor contrast) retained ~99.6% of
+their aggregate contrast strength. The large wall panels visibly
+lost palette-era colour stippling. Fine surface texture on the robot
+was also smoothed, and the final aesthetic decision still needs the
+game user's side-by-side comparison.
+
+The asset is a **CBM, not a BMP**. Original game frontend registrations
+name `familyroom.bmp` but the remaster's reader tries the corresponding
+`.cbm` first. Do not assume BMP data is used.
+
+This confirms that the revised algorithm genuinely changes the real
+source pixels, unlike the first algorithm. It does not prove the
+Windows GPU output until the resulting build has been run in the game.
+
 ## What to verify in-game
 
 1. Enter the family room or concourse in the **modern** graphics mode (F5).
