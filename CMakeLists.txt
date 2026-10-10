@@ -265,6 +265,7 @@ add_library(xwa_remaster STATIC
     src/xwa_remaster/ship.c
     src/xwa_remaster/opt_mesh.c
     src/xwa_remaster/original_2d.c
+    src/xwa_remaster/artwork_restoration.c
     src/xwa_remaster/sky_stars.c
     src/xwa_remaster/assets.c
     src/xwa_remaster/frontend_font_aa.c
