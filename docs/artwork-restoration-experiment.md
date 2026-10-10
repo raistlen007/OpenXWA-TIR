@@ -18,8 +18,10 @@ Restart the game to load the altered GPU atlases. For a fair before/after, leave
 Removing the restoration key also disables it if the shipped default remains false.
 
 `prefer_original_2d` ensures the original decoded background is used even if an
-authored replacement KTX2 happens to exist. The filter deliberately does *not*
-modify HD replacement artwork, text/fonts, small UI sprites or flight textures.
+authored replacement KTX2 happens to exist. The filter applies to all decoded original 2D sprite frames, including
+small detail illustrations and menu/button artwork. It does *not* process
+separately reconstructed font atlases, 3D flight textures or authored HD
+replacement textures.
 
 ## Verification on the actual original game artwork (2026-10-10)
 
@@ -29,14 +31,14 @@ structure as `Xwa2d_DecodeCbm`: one 640x480 RGBA frame, 252 distinct decoded
 RGBA colours, with transparent pixels retained.
 
 The revised C filter was run against that complete image with
-AddressSanitizer/UndefinedBehaviorSanitizer enabled. It changed
-262,939 / 307,200 pixels (85.59%), while preserving every alpha byte.
-Average absolute RGB difference was 2.14/255 (maximum 14/255 per channel).
-Strong edges (>=60/255 original neighbor contrast) retained ~99.6% of
-their aggregate contrast strength. The large wall panels visibly
-lost palette-era colour stippling. Fine surface texture on the robot
-was also smoothed, and the final aesthetic decision still needs the
-game user's side-by-side comparison.
+AddressSanitizer/UndefinedBehaviorSanitizer enabled. The second iteration changed 262,939 / 307,200 pixels (85.59%),
+which visibly reduced dither but also blurred fine detail. Following user
+feedback, the third selective algorithm changes only 68,202 / 307,200
+pixels (22.20%) on this CBM. It retains 100% of measured high-contrast
+(>=60/255) horizontal and vertical neighbour differences, and preserves
+every alpha byte. A before/after look at the robot and wall panels shows
+less blur than the broad 5x5 algorithm. Final appearance still requires
+in-game verification.
 
 The asset is a **CBM, not a BMP**. Original game frontend registrations
 name `familyroom.bmp` but the remaster's reader tries the corresponding
@@ -53,9 +55,9 @@ Windows GPU output until the resulting build has been run in the game.
 3. Check the resource log for the particular room, e.g.
    `2D file 'family/familyroom': source=original`.
 4. Check `xwa.artwork` for the corresponding file/group atlas and the
-   number of restored pixels. A value above zero means the renderer queued
-   changed texture pixels for upload; zero means the edge-aware reconstruction found nothing to modify
-   in that asset (or no eligible opaque pixels were present).
+   number of restored pixels. A nonzero count indicates changed source
+   pixels were queued for upload; zero means no matching alternating
+   pattern was found (or too few opaque interior pixels were present).
 5. Confirm `frontend assets committed` appears after GPU submission. Capture the
    same room with the filter disabled, then enabled. Look at *identical*
    regions at 100% zoom and compare dithering, edges, details and brightness.
@@ -69,14 +71,14 @@ repository. Do not claim visual success from the unit test alone.
 
 ## Implementation and rollback
 
-At each room-asset load, after decoding the original CBM/BMP/DAT pixels and
-before constructing the existing RGBA runtime atlas, sufficiently large
-(>=512x320) frontend frames run through a 5x5 local, color-distance weighted
-reconstruction. Both 2x2 and multilevel ordered dithering are handled. A
-color-similarity threshold excludes dissimilar neighbouring surfaces; an
-edge check protects strong lines and object boundaries. Fine texture within
-the similarity threshold can still be softened, so visual inspection of
-real assets is mandatory. Original alpha is never
+Every decoded original frontend CBM/BMP/DAT sprite frame passes through the
+same optional restoration step before upload, with no 512x320 cutoff.
+A 3x3 cross-pattern detector modifies a pixel only when opposite horizontal
+and vertical neighbours agree with one another yet disagree with the center.
+This targets alternating dithering without applying general surface blur.
+An opaque five-pixel cross is required; transparency and silhouettes are
+unmodified. The algorithm remains deliberately conservative, so some more
+complex dithering may survive. Original alpha is never
 changed; the source art remains on disk, unmodified. At startup with the
 toggle off, the new code has no effect on the atlas inputs.
 
