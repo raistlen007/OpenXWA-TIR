@@ -59,7 +59,8 @@ typedef struct XwaAssetRef {
 
 /* `root` is the configured bake output root. `prefer_original_2d` changes
  * source order; the alternate source is selected only when the first is absent. */
-XwaRemasterAssets* XwaRemasterAssets_Create(const char* root, int prefer_original_2d);
+XwaRemasterAssets* XwaRemasterAssets_Create(const char* root, int prefer_original_2d,
+		int restore_original_artwork);
 void XwaRemasterAssets_Destroy(XwaRemasterAssets* a);
 
 /* The bake output root passed at create.
