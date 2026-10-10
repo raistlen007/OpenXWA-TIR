@@ -21,7 +21,14 @@ defaults = read("resources/remaster/config.yaml")
 assert 'familyroom.bmp' in family and '"background"' in family
 assert 'FrontImage_DrawSpriteOpaque("background"' in family
 assert 'XwaRemasterOriginal2d_LoadFrontend(' in assets
-assert 'assets_restore_large_artwork(&frames)' in assets
+assert 'assets_restore_original_artwork(&frames)' in assets
+assert 'frame->width >= 512' not in assets
+assert 'frame->height >= 320' not in assets
+assert 'if (frame->rgba)' in assets
+assert 'newale.bmp' in family  # Smaller item art registered on the same route
+assert 'g_familyMedalDetailImagePathByMission' in family
+assert 'FrontImage_RegisterResourceDefault(g_frontendFamilyDetailImagePath, "background")' in family
+assert 'restore_original_artwork' in assets
 assert 'assets_build_runtime_atlas(&slot->original_atlas, cmd' in assets
 assert 'Aeron_RuntimeAtlasBuild(atlas, cmd, frames' in assets
 assert 'assets_runtime_frame(&slot->original_atlas, frame, out)' in assets
@@ -32,4 +39,4 @@ assert 'XwaRemasterAssets_Create(remaster_root, options->prefer_original_2d,' in
 assert '"assets.restore_original_artwork"' in config
 assert 'host_config.restore_original_artwork' in app
 assert 'restore_original_artwork: false' in defaults
-print("Artwork restore frontend-path integration assertions passed")
+print("Artwork restoration reaches all original 2D sprite sizes, including family detail art")
